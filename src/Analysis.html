@@ -689,16 +689,21 @@
         .getAnalysisResults(currentAssessmentId);
     }
     
+    var _restoreRunBtn = null;
+
     function runAnalysis() {
-      // Check for existing analysis
+      // Disable button immediately
+      var btn = document.querySelector('.options-panel .btn-primary');
+      _restoreRunBtn = setBtnLoading(btn, 'Checking...');
+
       google.script.run
         .withSuccessHandler(function(check) {
           if (check.exists) {
+            if (_restoreRunBtn) _restoreRunBtn();
             showConfirm(
               'Re-run Analysis?',
-              `Analysis was last run on ${formatDate(check.timestamp)}. Do you want to overwrite or create a new version?`,
+              'Analysis was last run on ' + formatDate(check.timestamp) + '. Do you want to overwrite or create a new version?',
               function() {
-                // Overwrite
                 executeAnalysis(true);
               },
               function() {
@@ -709,40 +714,53 @@
             executeAnalysis(false);
           }
         })
+        .withFailureHandler(function(error) {
+          if (_restoreRunBtn) _restoreRunBtn();
+          showToast('Error checking analysis: ' + error.message, 'error');
+        })
         .checkExistingAnalysis(currentAssessmentId);
     }
-    
+
     function executeAnalysis(overwrite) {
+      var btn = document.querySelector('.options-panel .btn-primary');
+      _restoreRunBtn = setBtnLoading(btn, 'Running Analysis...');
+      showLoading('Running analysis...');
+
       const options = {
         itemAnalysis: document.getElementById('optItemAnalysis').checked,
         smallGroups: document.getElementById('optSmallGroups').checked,
         heatmaps: document.getElementById('optHeatmaps').checked,
         sendEmail: document.getElementById('optSendEmail').checked
       };
-      
-      showLoading('Running analysis...');
-      
+
       if (overwrite) {
         google.script.run
           .withSuccessHandler(function() {
             performAnalysis(options);
+          })
+          .withFailureHandler(function(error) {
+            hideLoading();
+            if (_restoreRunBtn) _restoreRunBtn();
+            showToast('Error: ' + error.message, 'error');
           })
           .deleteExistingAnalysis(currentAssessmentId);
       } else {
         performAnalysis(options);
       }
     }
-    
+
     function performAnalysis(options) {
       google.script.run
         .withSuccessHandler(function(results) {
           hideLoading();
+          if (_restoreRunBtn) _restoreRunBtn();
           analysisResults = results;
           displayResults();
           showToast('Analysis complete!', 'success');
         })
         .withFailureHandler(function(error) {
           hideLoading();
+          if (_restoreRunBtn) _restoreRunBtn();
           showToast('Analysis failed: ' + error.message, 'error');
         })
         .runAnalysis(currentAssessmentId, options);
@@ -1196,64 +1214,70 @@
     }
     
     function downloadExcel() {
-      showLoading('Generating Excel file...');
-      
+      var btn = event ? event.target.closest('.btn') : null;
+      var restore = btn ? setBtnLoading(btn, 'Generating...') : function(){};
+
       google.script.run
         .withSuccessHandler(function(result) {
-          hideLoading();
+          restore();
           if (result.success) {
             downloadBlob(result.data, result.filename, result.mimeType);
             showToast('Download started!', 'success');
           }
         })
         .withFailureHandler(function(error) {
-          hideLoading();
+          restore();
           showToast('Download failed: ' + error.message, 'error');
         })
         .generateExcelDownload(currentAssessmentId, {});
     }
-    
+
     function downloadPDF() {
-      showLoading('Generating PDF file...');
-      
+      var btn = event ? event.target.closest('.btn') : null;
+      var restore = btn ? setBtnLoading(btn, 'Generating...') : function(){};
+
       google.script.run
         .withSuccessHandler(function(result) {
-          hideLoading();
+          restore();
           if (result.success) {
             downloadBlob(result.data, result.filename, result.mimeType);
             showToast('Download started!', 'success');
           }
         })
         .withFailureHandler(function(error) {
-          hideLoading();
+          restore();
           showToast('Download failed: ' + error.message, 'error');
         })
         .generatePDFReport(currentAssessmentId, {});
     }
-    
+
     function createTeacherFiles() {
+      var btn = event ? event.target.closest('.btn') : null;
       showConfirm(
         'Create Teacher Files?',
         'This will create individual Google Sheet files for each teacher and organize them in Drive folders. Continue?',
         function() {
+          var restore = btn ? setBtnLoading(btn, 'Creating Files...') : function(){};
           showLoading('Creating teacher files...');
-          
+
           google.script.run
             .withSuccessHandler(function(files) {
               hideLoading();
-              
+              restore();
+
               const successful = files.filter(f => f.success);
               const failed = files.filter(f => !f.success);
-              
+
               if (successful.length > 0) {
-                showToast(`Created ${successful.length} teacher files!`, 'success');
+                showToast('Created ' + successful.length + ' teacher files!', 'success');
               }
               if (failed.length > 0) {
-                showToast(`${failed.length} files failed to create`, 'warning');
+                showToast(failed.length + ' files failed to create', 'warning');
               }
             })
             .withFailureHandler(function(error) {
               hideLoading();
+              restore();
               showToast('Error creating files: ' + error.message, 'error');
             })
             .createAllTeacherFiles(currentAssessmentId);

@@ -577,19 +577,19 @@ function storeAnalysisResults(assessmentId, results) {
  */
 function getAnalysisResults(assessmentId) {
   try {
+    const normalId = assessmentId.toString().trim();
     const ss = getOrCreateDatabase();
     const sheet = ss.getSheetByName(CONFIG.sheets.analysisResults);
-    
+
     if (!sheet || sheet.getLastRow() < 2) {
       return {}; // No results yet
     }
-    
+
     const data = sheet.getDataRange().getValues();
-    
     const results = {};
-    
+
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === assessmentId) {
+      if (String(data[i][0]).trim() === normalId) {
         const type = data[i][1];
         try {
           results[type] = JSON.parse(data[i][5] || '{}');
@@ -600,7 +600,7 @@ function getAnalysisResults(assessmentId) {
         }
       }
     }
-    
+
     return results;
   } catch (error) {
     Logger.log('getAnalysisResults error: ' + error.message);
@@ -613,24 +613,25 @@ function getAnalysisResults(assessmentId) {
  */
 function checkExistingAnalysis(assessmentId) {
   try {
+    const normalId = assessmentId.toString().trim();
     const ss = getOrCreateDatabase();
     const sheet = ss.getSheetByName(CONFIG.sheets.analysisResults);
-    
+
     if (!sheet || sheet.getLastRow() < 2) {
       return { exists: false };
     }
-    
+
     const data = sheet.getDataRange().getValues();
-    
+
     for (let i = 1; i < data.length; i++) {
-      if (data[i][0] === assessmentId) {
+      if (String(data[i][0]).trim() === normalId) {
         return {
           exists: true,
           timestamp: data[i][3]
         };
       }
     }
-    
+
     return { exists: false };
   } catch (error) {
     Logger.log('checkExistingAnalysis error: ' + error.message);
@@ -642,13 +643,14 @@ function checkExistingAnalysis(assessmentId) {
  * Deletes existing analysis results for re-run
  */
 function deleteExistingAnalysis(assessmentId) {
+  const normalId = assessmentId.toString().trim();
   const ss = getOrCreateDatabase();
   const sheet = ss.getSheetByName(CONFIG.sheets.analysisResults);
   const data = sheet.getDataRange().getValues();
-  
+
   const rowsToDelete = [];
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === assessmentId) {
+    if (String(data[i][0]).trim() === normalId) {
       rowsToDelete.push(i + 1);
     }
   }

@@ -1,6 +1,6 @@
 <script>
 /* ═══════════════════════════════════════════════════════════════════════════
-   MASTERY CONNECT ANALYZER - SHARED JAVASCRIPT
+   KCMS BENCHMARK ANALYZER - SHARED JAVASCRIPT
    ═══════════════════════════════════════════════════════════════════════════ */
 
 // Toast Container
@@ -111,34 +111,38 @@ function debounce(func, wait) {
 function showConfirm(title, message, onConfirm, onCancel) {
   const modal = document.createElement('div');
   modal.className = 'modal active';
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 400px;">
-      <div class="modal-header">
-        <h2>${title}</h2>
-      </div>
-      <div class="modal-body">
-        <p>${message}</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
-        <button class="btn btn-primary" id="confirmOk">Confirm</button>
-      </div>
-    </div>
-  `;
-  
+  modal.innerHTML =
+    '<div class="modal-content" style="max-width: 400px;">' +
+      '<div class="modal-header"><h2>' + title + '</h2></div>' +
+      '<div class="modal-body"><p>' + message + '</p></div>' +
+      '<div class="modal-footer">' +
+        '<button class="btn btn-ghost" id="confirmCancel">Cancel</button>' +
+        '<button class="btn btn-primary" id="confirmOk">Confirm</button>' +
+      '</div>' +
+    '</div>';
+
   document.body.appendChild(modal);
-  
-  modal.querySelector('#confirmOk').addEventListener('click', () => {
-    modal.remove();
-    if (onConfirm) onConfirm();
+
+  modal.querySelector('#confirmOk').addEventListener('click', function() {
+    // Disable both buttons and show spinner on Confirm
+    var okBtn = modal.querySelector('#confirmOk');
+    var cancelBtn = modal.querySelector('#confirmCancel');
+    setBtnLoading(okBtn, 'Working...');
+    cancelBtn.disabled = true;
+    cancelBtn.style.opacity = '0.5';
+    // Remove modal after a short delay so user sees the loading state
+    setTimeout(function() {
+      modal.remove();
+      if (onConfirm) onConfirm();
+    }, 150);
   });
-  
-  modal.querySelector('#confirmCancel').addEventListener('click', () => {
+
+  modal.querySelector('#confirmCancel').addEventListener('click', function() {
     modal.remove();
     if (onCancel) onCancel();
   });
-  
-  modal.addEventListener('click', (e) => {
+
+  modal.addEventListener('click', function(e) {
     if (e.target === modal) {
       modal.remove();
       if (onCancel) onCancel();
@@ -272,6 +276,40 @@ function updateLoadingMessage(message) {
 }
 
 /**
+ * Sets a button to its loading state: disabled, greyed out, with a spinner.
+ * Returns a restore function that brings the button back to its original state.
+ *
+ * Usage:
+ *   var restore = setBtnLoading(myButton, 'Saving...');
+ *   doAsyncWork().then(function() { restore(); });
+ */
+function setBtnLoading(btn, loadingText) {
+  if (!btn || btn.dataset.btnLoading === '1') return function() {};
+
+  // Save original state
+  var origHTML = btn.innerHTML;
+  var origDisabled = btn.disabled;
+  var origMinWidth = btn.style.minWidth;
+
+  // Lock width so button doesn't jump
+  var rect = btn.getBoundingClientRect();
+  btn.style.minWidth = rect.width + 'px';
+
+  btn.disabled = true;
+  btn.dataset.btnLoading = '1';
+  btn.innerHTML =
+    '<span class="btn-spinner"></span>' +
+    '<span>' + (loadingText || 'Loading...') + '</span>';
+
+  return function restore() {
+    btn.innerHTML = origHTML;
+    btn.disabled = origDisabled;
+    btn.style.minWidth = origMinWidth;
+    delete btn.dataset.btnLoading;
+  };
+}
+
+/**
  * Add slide out animation
  */
 const style = document.createElement('style');
@@ -297,6 +335,25 @@ style.textContent = `
   
   #loadingOverlay .loading-message {
     font-size: 16px;
+  }
+
+  /* Button spinner for inline loading states */
+  .btn-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  button[data-btn-loading="1"] {
+    opacity: 0.7;
+    cursor: wait !important;
+    pointer-events: none;
   }
 `;
 document.head.appendChild(style);

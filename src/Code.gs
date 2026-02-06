@@ -723,38 +723,39 @@ function updateClassPeriods(assessmentId, periodData) {
   if (!user || user.isNewUser) {
     throw new Error('User not authenticated');
   }
-  
+
+  const normalId = assessmentId.toString().trim();
   const ss = getOrCreateDatabase();
   const sheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
   const data = sheet.getDataRange().getValues();
   const headers = data[0];
-  
+
   const idCol = headers.indexOf('assessment_id');
   const studentIdCol = headers.indexOf('student_id');
   const periodCol = headers.indexOf('period');
-  
+
   // Create lookup for period data
   const periodMap = {};
   periodData.forEach(p => {
     periodMap[p.studentId] = p.period;
   });
-  
+
   // Update periods
   for (let i = 1; i < data.length; i++) {
-    if (data[i][idCol] === assessmentId && periodMap[data[i][studentIdCol]] !== undefined) {
+    if (String(data[i][idCol]).trim() === normalId && periodMap[data[i][studentIdCol]] !== undefined) {
       sheet.getRange(i + 1, periodCol + 1).setValue(periodMap[data[i][studentIdCol]]);
     }
   }
-  
+
   // Update assessment status
   const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
   const assessmentData = assessmentSheet.getDataRange().getValues();
   const assessmentHeaders = assessmentData[0];
   const assessmentIdCol = assessmentHeaders.indexOf('id');
   const statusCol = assessmentHeaders.indexOf('status');
-  
+
   for (let i = 1; i < assessmentData.length; i++) {
-    if (assessmentData[i][assessmentIdCol] === assessmentId) {
+    if (String(assessmentData[i][assessmentIdCol]).trim() === normalId) {
       assessmentSheet.getRange(i + 1, statusCol + 1).setValue('ready');
       break;
     }
@@ -772,27 +773,30 @@ function getAssessmentData(assessmentId) {
     if (!user || user.isNewUser) {
       throw new Error('User not authenticated');
     }
-    
+
     if (!assessmentId) {
       throw new Error('No assessment ID provided');
     }
-    
+
+    // Normalize the ID for comparison (Sheets can coerce types)
+    const normalId = assessmentId.toString().trim();
+
     const ss = getOrCreateDatabase();
-    
+
     // Get assessment metadata
     const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
     if (!assessmentSheet) {
       throw new Error('Assessments sheet not found');
     }
-    
+
     const assessmentData = assessmentSheet.getDataRange().getValues();
     const assessmentHeaders = assessmentData[0];
-    
+
     let assessment = null;
     const idColIdx = assessmentHeaders.indexOf('id');
-    
+
     for (let i = 1; i < assessmentData.length; i++) {
-      if (assessmentData[i][idColIdx] === assessmentId) {
+      if (String(assessmentData[i][idColIdx]).trim() === normalId) {
         assessment = {};
         assessmentHeaders.forEach((h, idx) => {
           assessment[h] = assessmentData[i][idx];
@@ -800,34 +804,34 @@ function getAssessmentData(assessmentId) {
         break;
       }
     }
-    
+
     if (!assessment) {
-      throw new Error('Assessment not found: ' + assessmentId);
+      throw new Error('Assessment not found: ' + normalId);
     }
-    
+
     // Check permissions - teachers can only see their own assessments
     if (user.role === CONFIG.roles.TEACHER && assessment.teacher_email !== user.email) {
       throw new Error('Access denied - you can only view your own assessments');
     }
-    
+
     // Get raw data
     const rawDataSheet = ss.getSheetByName(CONFIG.sheets.rawData);
     if (!rawDataSheet) {
       throw new Error('Raw data sheet not found');
     }
-    
+
     const rawData = rawDataSheet.getDataRange().getValues();
-    
+
     let solRow = [];
     let header = [];
     const students = [];
-    
+
     for (let i = 1; i < rawData.length; i++) {
-      if (rawData[i][0] === assessmentId) {
+      if (String(rawData[i][0]).trim() === normalId) {
         const rowType = rawData[i][2];
         try {
           const data = JSON.parse(rawData[i][3]);
-          
+
           if (rowType === 'sol') solRow = data;
           else if (rowType === 'header') header = data;
           else if (rowType === 'student') students.push(data);
@@ -836,16 +840,16 @@ function getAssessmentData(assessmentId) {
         }
       }
     }
-    
+
     // Get class periods
     const periodSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
     const periodMap = {};
-    
+
     if (periodSheet && periodSheet.getLastRow() > 1) {
       const periodData = periodSheet.getDataRange().getValues();
-      
+
       for (let i = 1; i < periodData.length; i++) {
-        if (periodData[i][0] === assessmentId) {
+        if (String(periodData[i][0]).trim() === normalId) {
           periodMap[periodData[i][1]] = periodData[i][4]; // student_id -> period
         }
       }

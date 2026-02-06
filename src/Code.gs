@@ -34,25 +34,21 @@ const CONFIG = {
     classPeriods: 'ClassPeriods',
     analysisResults: 'AnalysisResults'
   },
-  
+
   // Schools in the division
   schools: [
-    'Berkeley Glenn Elementary School',
-    'Wenonah Elementary School',
-    'Westwood Hills Elementary School',
-    'William Perry Elementary School',
-    'Kate Collins Middle School',
-    'Waynesboro High School'
+    'Kate Collins Middle School'
   ],
-  
-  // Color Palette - Mastery Connect Theme (Dark)
+
+  // Color Palette - KCMS Purple & Gold Theme (Dark)
   colors: {
-    primary: '#00a14b',       // Mastery Connect Green
-    primaryDark: '#008f42',   // Darker green
-    primaryLight: '#00c05a',  // Lighter green
-    background: '#1a1a2e',    // Dark background
-    surface: '#16213e',       // Card/surface background
-    surfaceLight: '#1f2b47',  // Lighter surface
+    primary: '#7C3AED',       // KCMS Purple
+    primaryDark: '#6D28D9',   // Darker purple
+    primaryLight: '#8B5CF6',  // Lighter purple
+    gold: '#EAB308',          // KCMS Gold accent
+    background: '#151225',    // Dark background
+    surface: '#1e1a32',       // Card/surface background
+    surfaceLight: '#28243f',  // Lighter surface
     text: '#ffffff',          // Primary text
     textMuted: '#a0aec0',     // Muted text
     growth: '#ef4444',        // Red - needs growth
@@ -98,7 +94,7 @@ function doGet(e) {
       loginTemplate.scriptUrl = ScriptApp.getService().getUrl();
       loginTemplate.urlParams = (e && e.parameter) ? e.parameter : {};
       return loginTemplate.evaluate()
-        .setTitle('Mastery Connect Analyzer - Login')
+        .setTitle('KCMS Benchmark Analyzer - Login')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
     
@@ -109,6 +105,9 @@ function doGet(e) {
   switch (page) {
     case 'upload':
       template = HtmlService.createTemplateFromFile('Upload');
+      break;
+    case 'compare':
+      template = HtmlService.createTemplateFromFile('Compare');
       break;
     case 'analysis':
       template = HtmlService.createTemplateFromFile('Analysis');
@@ -144,7 +143,7 @@ function doGet(e) {
   }
   
   return template.evaluate()
-    .setTitle('Mastery Connect Analyzer')
+    .setTitle('KCMS Benchmark Analyzer')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     
@@ -154,9 +153,9 @@ function doGet(e) {
       '<html><body style="font-family: Arial; padding: 40px; background: #1a1a2e; color: white;">' +
       '<h1 style="color: #ef4444;">Error Loading Page</h1>' +
       '<p>Something went wrong: ' + error.message + '</p>' +
-      '<p><a href="' + ScriptApp.getService().getUrl() + '" style="color: #00a14b;">Return to Dashboard</a></p>' +
+      '<p><a href="' + ScriptApp.getService().getUrl() + '" style="color: #7C3AED;">Return to Dashboard</a></p>' +
       '</body></html>'
-    ).setTitle('Error - Mastery Connect Analyzer');
+    ).setTitle('Error - KCMS Benchmark Analyzer');
   }
 }
 
@@ -382,7 +381,7 @@ function getOrCreateDatabase() {
   }
   
   // Create new database
-  const ss = SpreadsheetApp.create('Mastery Connect Analyzer Database');
+  const ss = SpreadsheetApp.create('KCMS Benchmark Analyzer Database');
   ssId = ss.getId();
   props.setProperty('DATABASE_ID', ssId);
   
@@ -586,16 +585,31 @@ function processCSVUpload(uploadData) {
   // Validate required columns
   const header = rows[1];
   const requiredCols = ['teacher', 'first_name', 'last_name', 'percentage', 'student_id'];
-  const missingCols = requiredCols.filter(col => 
-    !header.some(h => h && h.toString().toLowerCase().includes(col.toLowerCase()))
-  );
-  
+  const missingCols = requiredCols.filter(col => {
+    var lowerCol = col.toLowerCase();
+    return !header.some(function(h) {
+      if (!h) return false;
+      var lowerH = h.toString().toLowerCase();
+      // Match exact name or with underscores/spaces swapped
+      return lowerH === lowerCol || lowerH === lowerCol.replace(/_/g, ' ') || lowerH.replace(/ /g, '_') === lowerCol;
+    });
+  });
+
   if (missingCols.length > 0) {
     throw new Error('Missing required columns: ' + missingCols.join(', '));
   }
-  
+
+  // Case-insensitive column finder (matching AnalysisFunctions.gs findColIndex)
+  function findCol(colName) {
+    var lowerName = colName.toLowerCase();
+    var idx = header.findIndex(function(h) { return h && h.toString().toLowerCase() === lowerName; });
+    if (idx !== -1) return idx;
+    var altName = lowerName.indexOf('_') !== -1 ? lowerName.replace(/_/g, ' ') : lowerName.replace(/ /g, '_');
+    return header.findIndex(function(h) { return h && h.toString().toLowerCase() === altName; });
+  }
+
   // Find teacher column to filter data for the current teacher
-  const teacherColIdx = header.findIndex(h => h && h.toString().toLowerCase() === 'teacher');
+  const teacherColIdx = findCol('teacher');
   
   // Filter rows to only include the current teacher's students (for teachers)
   // Admins can upload all data
@@ -631,7 +645,7 @@ function processCSVUpload(uploadData) {
   // Store assessment metadata
   const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
   const studentCount = filteredRows.length - 2;
-  const pctColIdx = header.findIndex(h => h && h.toString().toLowerCase() === 'percentage');
+  const pctColIdx = findCol('percentage');
   const questionCount = pctColIdx !== -1 ? Math.floor((header.length - pctColIdx - 1) / 2) : 0;
   
   assessmentSheet.appendRow([
@@ -665,9 +679,9 @@ function processCSVUpload(uploadData) {
   
   // Prepare class period data
   const classPeriodSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
-  const firstNameCol = header.findIndex(h => h && h.toString().toLowerCase() === 'first_name');
-  const lastNameCol = header.findIndex(h => h && h.toString().toLowerCase() === 'last_name');
-  const studentIdCol = header.findIndex(h => h && h.toString().toLowerCase() === 'student_id');
+  const firstNameCol = findCol('first_name');
+  const lastNameCol = findCol('last_name');
+  const studentIdCol = findCol('student_id');
   
   const students = [];
   for (let i = 2; i < filteredRows.length; i++) {

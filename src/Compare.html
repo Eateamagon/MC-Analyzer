@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    .compare-selectors {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 24px;
+      align-items: start;
+      margin-bottom: 32px;
+    }
+    .compare-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      border: 2px solid rgba(255,255,255,0.05);
+      transition: border-color 0.25s;
+    }
+    .compare-card.selected {
+      border-color: var(--primary);
+    }
+    .compare-card.card-b.selected {
+      border-color: var(--accent-gold);
+    }
+    .compare-card h3 {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 16px; font-size: 16px;
+    }
+    .compare-card h3 .badge {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+    }
+    .badge-a { background: var(--primary); color: white; }
+    .badge-b { background: var(--accent-gold); color: #1a1a2e; }
+    .vs-divider {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 700; color: var(--text-muted);
+      padding-top: 60px;
+    }
+    .assessment-option {
+      padding: 12px 16px;
+      background: var(--bg-surface-light);
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 8px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .assessment-option:hover { background: var(--bg-hover); }
+    .assessment-option.selected-a { border-color: var(--primary); background: rgba(124,58,237,0.1); }
+    .assessment-option.selected-b { border-color: var(--accent-gold); background: rgba(234,179,8,0.1); }
+    .assessment-option .opt-name { font-weight: 500; margin-bottom: 4px; }
+    .assessment-option .opt-meta { font-size: 12px; color: var(--text-muted); }
+    .or-upload {
+      text-align: center; padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      margin-top: 12px; color: var(--text-muted); font-size: 13px;
+    }
+    .or-upload a { color: var(--primary); cursor: pointer; text-decoration: underline; }
+
+    /* Results styles */
+    .comparison-summary {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 24px; margin-bottom: 32px;
+    }
+    .summary-block {
+      background: var(--bg-surface); border-radius: var(--border-radius);
+      padding: 24px; text-align: center;
+    }
+    .summary-block .label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+    .summary-block .value { font-size: 32px; font-weight: 700; }
+    .summary-block .sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+    .delta-block {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+    }
+    .delta-block .delta-value {
+      font-size: 40px; font-weight: 700;
+    }
+    .delta-positive { color: var(--color-strength); }
+    .delta-negative { color: var(--color-growth); }
+    .delta-neutral { color: var(--text-muted); }
+
+    .compare-table {
+      width: 100%; border-collapse: collapse;
+    }
+    .compare-table th, .compare-table td {
+      padding: 12px; text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .compare-table th {
+      font-weight: 600; color: var(--text-muted);
+      font-size: 12px; text-transform: uppercase;
+      background: var(--bg-surface);
+    }
+    .compare-table tbody tr:hover { background: var(--bg-hover); }
+
+    .delta-chip {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 4px; font-size: 12px; font-weight: 600;
+    }
+    .delta-chip.positive { background: rgba(16,185,129,0.15); color: var(--color-strength); }
+    .delta-chip.negative { background: rgba(239,68,68,0.15); color: var(--color-growth); }
+    .delta-chip.neutral { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+    .sol-delta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 8px; margin-top: 12px;
+    }
+    .sol-delta-cell {
+      background: var(--bg-surface-light); border-radius: 8px;
+      padding: 10px; text-align: center;
+    }
+    .sol-delta-cell .sol-name { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .sol-delta-cell .sol-vals { font-size: 12px; margin-bottom: 2px; }
+
+    .teacher-compare-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      margin-bottom: 16px; overflow: hidden;
+    }
+    .teacher-compare-header {
+      padding: 16px 24px;
+      background: var(--bg-surface-light);
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer;
+    }
+    .teacher-compare-header:hover { background: var(--bg-hover); }
+    .teacher-compare-body {
+      padding: 24px; display: none;
+    }
+    .teacher-compare-body.expanded { display: block; }
+
+    .results-section { display: none; }
+    .results-section.active { display: block; }
+
+    .compare-tabs {
+      display: flex; gap: 4px; margin-bottom: 24px;
+      background: var(--bg-surface); padding: 8px;
+      border-radius: var(--border-radius);
+    }
+    .compare-tab {
+      flex: 1; padding: 12px; background: transparent;
+      border: none; border-radius: var(--border-radius-sm);
+      color: var(--text-muted); font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .compare-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .compare-tab.active { background: var(--primary); color: white; }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">🏛️</span>
+        <span class="logo-text">KCMS Analyzer</span>
+      </div>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl ?>?page=dashboard" class="nav-item">
+        <span class="material-icons">dashboard</span><span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=upload" class="nav-item">
+        <span class="material-icons">cloud_upload</span><span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=compare" class="nav-item active">
+        <span class="material-icons">compare_arrows</span><span>Compare</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=history" class="nav-item">
+        <span class="material-icons">history</span><span>Assessment History</span>
+      </a>
+    </div>
+    <? if (user.role !== 'teacher') { ?>
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl ?>?page=admin" class="nav-item">
+        <span class="material-icons">admin_panel_settings</span><span>Admin Panel</span>
+      </a>
+    </div>
+    <? } ?>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user.name || user.email.split('@')[0] ?></div>
+          <div class="user-role"><?= user.role === 'division_admin' ? 'Division Admin' : user.role === 'school_admin' ? 'School Admin' : 'Teacher' ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h1>Compare Assessments</h1>
+        <span class="header-subtitle">Select two benchmark exports to compare growth</span>
+      </div>
+    </header>
+
+    <div class="dashboard-content">
+      <!-- Selection Panel -->
+      <div id="selectionPanel">
+        <div class="compare-selectors">
+          <div class="compare-card" id="cardA">
+            <h3><span class="badge badge-a">A</span> First Assessment (Baseline)</h3>
+            <div id="listA" class="assessment-list-compare">
+              <div class="loading-spinner"><div class="spinner"></div><span>Loading...</span></div>
+            </div>
+          </div>
+          <div class="vs-divider">VS</div>
+          <div class="compare-card card-b" id="cardB">
+            <h3><span class="badge badge-b">B</span> Second Assessment (Latest)</h3>
+            <div id="listB" class="assessment-list-compare">
+              <div class="loading-spinner"><div class="spinner"></div><span>Loading...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center;">
+          <button class="btn btn-gold" id="runCompareBtn" onclick="runComparison()" disabled>
+            <span class="material-icons">compare_arrows</span>
+            Compare Assessments
+          </button>
+          <p style="color: var(--text-muted); font-size: 13px; margin-top: 8px;">
+            Select one assessment on each side, then click Compare.
+          </p>
+        </div>
+      </div>
+
+      <!-- Results Panel -->
+      <div id="resultsPanel" class="results-section">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+          <button class="btn btn-ghost" onclick="backToSelection()">
+            <span class="material-icons">arrow_back</span> Choose Different Assessments
+          </button>
+          <h2 id="comparisonTitle" style="font-size: 18px;"></h2>
+        </div>
+
+        <!-- Overall summary -->
+        <div class="comparison-summary">
+          <div class="summary-block">
+            <div class="label" id="nameA"></div>
+            <div class="value" style="color: var(--primary);" id="avgA"></div>
+            <div class="sub" id="countA"></div>
+          </div>
+          <div class="summary-block delta-block">
+            <div class="label">Change</div>
+            <div class="delta-value" id="overallDelta"></div>
+            <div class="sub">percentage points</div>
+          </div>
+          <div class="summary-block">
+            <div class="label" id="nameB"></div>
+            <div class="value" style="color: var(--accent-gold);" id="avgB"></div>
+            <div class="sub" id="countB"></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="compare-tabs">
+          <button class="compare-tab active" onclick="showCompareTab('teachers')">
+            <span class="material-icons">person</span> By Teacher
+          </button>
+          <button class="compare-tab" onclick="showCompareTab('students')">
+            <span class="material-icons">people</span> By Student
+          </button>
+        </div>
+
+        <!-- Teacher Tab -->
+        <div class="compare-tab-content active" id="teachersContent">
+          <div id="teacherCompareList"></div>
+        </div>
+
+        <!-- Student Tab -->
+        <div class="compare-tab-content" id="studentsContent" style="display:none;">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title"><span class="material-icons">people</span> Student Growth (<span id="matchCount"></span> matched)</h2>
+            </div>
+            <div class="card-body" style="overflow-x: auto;">
+              <div id="studentCompareTable"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <?!= include('Scripts'); ?>
+
+  <script>
+    var SCRIPT_URL = '<?= scriptUrl ?>';
+    var selectedA = null;
+    var selectedB = null;
+    var allAssessments = [];
+    var comparisonResults = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadAssessments();
+    });
+
+    function loadAssessments() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          allAssessments = assessments || [];
+          renderLists();
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('listA').innerHTML = '<p style="color:var(--color-error);">Error loading assessments</p>';
+          document.getElementById('listB').innerHTML = '<p style="color:var(--color-error);">Error loading assessments</p>';
+        })
+        .getAssessmentList();
+    }
+
+    function renderLists() {
+      if (allAssessments.length === 0) {
+        var empty = '<div class="empty-state"><span class="material-icons">folder_open</span><p>No assessments uploaded yet.</p><a href="' + SCRIPT_URL + '?page=upload" class="btn btn-primary" style="margin-top:12px;">Upload Assessment</a></div>';
+        document.getElementById('listA').innerHTML = empty;
+        document.getElementById('listB').innerHTML = empty;
+        return;
+      }
+
+      ['A', 'B'].forEach(function(side) {
+        var container = document.getElementById('list' + side);
+        container.innerHTML = allAssessments.map(function(a) {
+          var sel = (side === 'A' && selectedA === a.id) ? ' selected-a' :
+                    (side === 'B' && selectedB === a.id) ? ' selected-b' : '';
+          return '<div class="assessment-option' + sel + '" onclick="selectAssessment(\'' + side + '\',\'' + a.id + '\')">' +
+            '<div class="opt-name">' + (a.name || 'Unnamed') + '</div>' +
+            '<div class="opt-meta">' + (a.subject || '') + (a.grade_level ? ' &bull; Grade ' + a.grade_level : '') +
+            ' &bull; ' + (a.student_count || 0) + ' students &bull; ' +
+            formatDate(a.date_uploaded) + '</div></div>';
+        }).join('');
+
+        container.innerHTML += '<div class="or-upload">Don\'t see it? <a onclick="window.location.href=SCRIPT_URL+\'?page=upload\'">Upload a new CSV</a></div>';
+      });
+    }
+
+    function selectAssessment(side, id) {
+      if (side === 'A') {
+        selectedA = (selectedA === id) ? null : id;
+        if (selectedA === selectedB) selectedB = null;
+      } else {
+        selectedB = (selectedB === id) ? null : id;
+        if (selectedB === selectedA) selectedA = null;
+      }
+      renderLists();
+      updateCompareButton();
+    }
+
+    function updateCompareButton() {
+      var btn = document.getElementById('runCompareBtn');
+      btn.disabled = !(selectedA && selectedB);
+      document.getElementById('cardA').classList.toggle('selected', !!selectedA);
+      document.getElementById('cardB').classList.toggle('selected', !!selectedB);
+    }
+
+    function runComparison() {
+      if (!selectedA || !selectedB) return;
+      showLoading('Comparing assessments...');
+
+      google.script.run
+        .withSuccessHandler(function(results) {
+          hideLoading();
+          comparisonResults = results;
+          displayComparison();
+        })
+        .withFailureHandler(function(err) {
+          hideLoading();
+          showToast('Comparison failed: ' + err.message, 'error');
+        })
+        .compareAssessments(selectedA, selectedB);
+    }
+
+    function displayComparison() {
+      var r = comparisonResults;
+      document.getElementById('selectionPanel').style.display = 'none';
+      document.getElementById('resultsPanel').classList.add('active');
+
+      // Summary
+      document.getElementById('nameA').textContent = r.assessmentA.name;
+      document.getElementById('avgA').textContent = r.assessmentA.average + '%';
+      document.getElementById('countA').textContent = r.assessmentA.studentCount + ' students';
+      document.getElementById('nameB').textContent = r.assessmentB.name;
+      document.getElementById('avgB').textContent = r.assessmentB.average + '%';
+      document.getElementById('countB').textContent = r.assessmentB.studentCount + ' students';
+
+      var deltaEl = document.getElementById('overallDelta');
+      var d = r.overallDelta;
+      deltaEl.textContent = (d > 0 ? '+' : '') + d + '%';
+      deltaEl.className = 'delta-value ' + (d > 0 ? 'delta-positive' : d < 0 ? 'delta-negative' : 'delta-neutral');
+
+      document.getElementById('comparisonTitle').textContent = '';
+      document.getElementById('matchCount').textContent = r.matchedStudentCount;
+
+      // Teacher comparisons
+      var tHtml = '';
+      r.teacherComparisons.forEach(function(tc) {
+        var dClass = tc.avgDelta > 0 ? 'positive' : tc.avgDelta < 0 ? 'negative' : 'neutral';
+        tHtml += '<div class="teacher-compare-card">' +
+          '<div class="teacher-compare-header" onclick="toggleCompareBody(this)">' +
+            '<div><strong>' + tc.teacher + '</strong>' +
+              '<span style="color:var(--text-muted);margin-left:12px;">' + tc.studentsA + ' &rarr; ' + tc.studentsB + ' students</span></div>' +
+            '<div class="flex items-center gap-2">' +
+              '<span style="color:var(--primary);">' + (tc.avgA !== null ? tc.avgA + '%' : '-') + '</span>' +
+              '<span class="material-icons" style="font-size:16px;color:var(--text-muted);">arrow_forward</span>' +
+              '<span style="color:var(--accent-gold);">' + (tc.avgB !== null ? tc.avgB + '%' : '-') + '</span>' +
+              '<span class="delta-chip ' + dClass + '">' + (tc.avgDelta !== null ? (tc.avgDelta > 0 ? '+' : '') + tc.avgDelta + '%' : '-') + '</span>' +
+              '<span class="material-icons">expand_more</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="teacher-compare-body">' +
+            '<h4 style="margin-bottom:12px;font-size:14px;color:var(--text-muted);">SOL Breakdown</h4>' +
+            '<div class="sol-delta-grid">';
+
+        tc.solDeltas.forEach(function(sd) {
+          var sdClass = sd.delta > 0 ? 'delta-positive' : sd.delta < 0 ? 'delta-negative' : 'delta-neutral';
+          tHtml += '<div class="sol-delta-cell">' +
+            '<div class="sol-name">' + sd.sol + '</div>' +
+            '<div class="sol-vals">' + (sd.pctA !== null ? sd.pctA + '%' : '-') + ' &rarr; ' + (sd.pctB !== null ? sd.pctB + '%' : '-') + '</div>' +
+            '<div class="' + sdClass + '" style="font-weight:600;">' + (sd.delta !== null ? (sd.delta > 0 ? '+' : '') + sd.delta + '%' : '-') + '</div>' +
+          '</div>';
+        });
+
+        tHtml += '</div></div></div>';
+      });
+      document.getElementById('teacherCompareList').innerHTML = tHtml || '<div class="empty-state"><p>No teacher data to compare</p></div>';
+
+      // Student comparisons
+      if (r.studentComparisons.length > 0) {
+        var sHtml = '<table class="compare-table"><thead><tr>' +
+          '<th>Student</th><th>Teacher</th>' +
+          '<th>' + r.assessmentA.name + '</th>' +
+          '<th>' + r.assessmentB.name + '</th>' +
+          '<th>Change</th></tr></thead><tbody>';
+
+        r.studentComparisons.forEach(function(sc) {
+          var dClass = sc.delta > 0 ? 'positive' : sc.delta < 0 ? 'negative' : 'neutral';
+          sHtml += '<tr>' +
+            '<td><strong>' + sc.name + '</strong></td>' +
+            '<td>' + sc.teacher + '</td>' +
+            '<td>' + sc.pctA + '%</td>' +
+            '<td>' + sc.pctB + '%</td>' +
+            '<td><span class="delta-chip ' + dClass + '">' + (sc.delta > 0 ? '+' : '') + sc.delta + '%</span></td>' +
+          '</tr>';
+        });
+
+        sHtml += '</tbody></table>';
+        document.getElementById('studentCompareTable').innerHTML = sHtml;
+      } else {
+        document.getElementById('studentCompareTable').innerHTML =
+          '<div class="empty-state"><p>No matching students found between assessments (matched by student ID)</p></div>';
+      }
+    }
+
+    function backToSelection() {
+      document.getElementById('selectionPanel').style.display = 'block';
+      document.getElementById('resultsPanel').classList.remove('active');
+    }
+
+    function toggleCompareBody(header) {
+      var body = header.nextElementSibling;
+      var icon = header.querySelector('.material-icons:last-child');
+      body.classList.toggle('expanded');
+      icon.textContent = body.classList.contains('expanded') ? 'expand_less' : 'expand_more';
+    }
+
+    function showCompareTab(tab) {
+      document.querySelectorAll('.compare-tab').forEach(function(t) { t.classList.remove('active'); });
+      event.target.closest('.compare-tab').classList.add('active');
+      document.getElementById('teachersContent').style.display = tab === 'teachers' ? 'block' : 'none';
+      document.getElementById('studentsContent').style.display = tab === 'students' ? 'block' : 'none';
+    }
+  </script>
+</body>
+</html>

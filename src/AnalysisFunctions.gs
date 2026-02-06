@@ -5,6 +5,28 @@
  */
 
 /**
+ * Case-insensitive column index finder for CSV headers.
+ * Handles variations in Mastery Connect CSV exports (e.g., "Teacher", "teacher", "TEACHER").
+ */
+function findColIndex(header, colName) {
+  var lowerName = colName.toLowerCase();
+  // First try exact case-insensitive match
+  for (var i = 0; i < header.length; i++) {
+    if (header[i] && header[i].toString().toLowerCase() === lowerName) {
+      return i;
+    }
+  }
+  // Fallback: try matching with underscores replaced by spaces and vice versa
+  var altName = lowerName.indexOf('_') !== -1 ? lowerName.replace(/_/g, ' ') : lowerName.replace(/ /g, '_');
+  for (var i = 0; i < header.length; i++) {
+    if (header[i] && header[i].toString().toLowerCase() === altName) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Runs the complete analysis for an assessment
  */
 function runAnalysis(assessmentId, options) {
@@ -12,23 +34,23 @@ function runAnalysis(assessmentId, options) {
   if (!user || user.isNewUser) {
     throw new Error('User not authenticated');
   }
-  
+
   // Get assessment data
   const assessmentData = getAssessmentData(assessmentId);
   const { assessment, solRow, header, students, periodMap } = assessmentData;
-  
+
   // Get user settings
   const settings = user.settings || CONFIG.defaults;
-  
+
   // Parse questions from header
   const questions = parseQuestions(header, solRow);
-  
-  // Get column indices
-  const teacherCol = header.indexOf('teacher');
-  const firstNameCol = header.indexOf('first_name');
-  const lastNameCol = header.indexOf('last_name');
-  const studentIdCol = header.indexOf('student_id');
-  const pctCol = header.indexOf('percentage');
+
+  // Get column indices (case-insensitive)
+  const teacherCol = findColIndex(header, 'teacher');
+  const firstNameCol = findColIndex(header, 'first_name');
+  const lastNameCol = findColIndex(header, 'last_name');
+  const studentIdCol = findColIndex(header, 'student_id');
+  const pctCol = findColIndex(header, 'percentage');
   
   const results = {
     assessmentId: assessmentId,
@@ -98,7 +120,7 @@ function runAnalysis(assessmentId, options) {
  * Parses questions from header row
  */
 function parseQuestions(header, solRow) {
-  const pctCol = header.indexOf('percentage');
+  const pctCol = findColIndex(header, 'percentage');
   const firstQ = pctCol + 1;
   const qCount = Math.floor((header.length - firstQ) / 2);
   const questions = [];

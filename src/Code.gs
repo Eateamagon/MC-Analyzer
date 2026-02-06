@@ -586,16 +586,31 @@ function processCSVUpload(uploadData) {
   // Validate required columns
   const header = rows[1];
   const requiredCols = ['teacher', 'first_name', 'last_name', 'percentage', 'student_id'];
-  const missingCols = requiredCols.filter(col => 
-    !header.some(h => h && h.toString().toLowerCase().includes(col.toLowerCase()))
-  );
-  
+  const missingCols = requiredCols.filter(col => {
+    var lowerCol = col.toLowerCase();
+    return !header.some(function(h) {
+      if (!h) return false;
+      var lowerH = h.toString().toLowerCase();
+      // Match exact name or with underscores/spaces swapped
+      return lowerH === lowerCol || lowerH === lowerCol.replace(/_/g, ' ') || lowerH.replace(/ /g, '_') === lowerCol;
+    });
+  });
+
   if (missingCols.length > 0) {
     throw new Error('Missing required columns: ' + missingCols.join(', '));
   }
-  
+
+  // Case-insensitive column finder (matching AnalysisFunctions.gs findColIndex)
+  function findCol(colName) {
+    var lowerName = colName.toLowerCase();
+    var idx = header.findIndex(function(h) { return h && h.toString().toLowerCase() === lowerName; });
+    if (idx !== -1) return idx;
+    var altName = lowerName.indexOf('_') !== -1 ? lowerName.replace(/_/g, ' ') : lowerName.replace(/ /g, '_');
+    return header.findIndex(function(h) { return h && h.toString().toLowerCase() === altName; });
+  }
+
   // Find teacher column to filter data for the current teacher
-  const teacherColIdx = header.findIndex(h => h && h.toString().toLowerCase() === 'teacher');
+  const teacherColIdx = findCol('teacher');
   
   // Filter rows to only include the current teacher's students (for teachers)
   // Admins can upload all data
@@ -631,7 +646,7 @@ function processCSVUpload(uploadData) {
   // Store assessment metadata
   const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
   const studentCount = filteredRows.length - 2;
-  const pctColIdx = header.findIndex(h => h && h.toString().toLowerCase() === 'percentage');
+  const pctColIdx = findCol('percentage');
   const questionCount = pctColIdx !== -1 ? Math.floor((header.length - pctColIdx - 1) / 2) : 0;
   
   assessmentSheet.appendRow([
@@ -665,9 +680,9 @@ function processCSVUpload(uploadData) {
   
   // Prepare class period data
   const classPeriodSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
-  const firstNameCol = header.findIndex(h => h && h.toString().toLowerCase() === 'first_name');
-  const lastNameCol = header.findIndex(h => h && h.toString().toLowerCase() === 'last_name');
-  const studentIdCol = header.findIndex(h => h && h.toString().toLowerCase() === 'student_id');
+  const firstNameCol = findCol('first_name');
+  const lastNameCol = findCol('last_name');
+  const studentIdCol = findCol('student_id');
   
   const students = [];
   for (let i = 2; i < filteredRows.length; i++) {

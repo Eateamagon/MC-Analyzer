@@ -746,7 +746,10 @@
     
     function displayResults() {
       if (!analysisResults) return;
-      
+
+      // Hide the "Ready to Analyze" message
+      document.getElementById('noResultsMessage').style.display = 'none';
+
       // Populate teacher filters
       populateTeacherFilters();
       

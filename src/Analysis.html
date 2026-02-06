@@ -629,43 +629,58 @@
       }
     });
     
+    function showFatalError(message) {
+      // Show error on the page itself instead of redirecting to a potentially blank page
+      document.getElementById('noResultsMessage').style.display = 'flex';
+      document.getElementById('noResultsMessage').innerHTML =
+        '<span class="material-icons" style="font-size: 64px; color: var(--color-error); margin-bottom: 16px;">error_outline</span>' +
+        '<h3 style="margin-bottom: 8px;">Could Not Load Assessment</h3>' +
+        '<p style="color: var(--text-muted); margin-bottom: 8px; max-width: 500px; word-break: break-word;">' + message + '</p>' +
+        '<div style="display:flex; gap: 12px; margin-top: 16px;">' +
+          '<a href="' + SCRIPT_URL + '?page=history" class="btn btn-primary">Assessment History</a>' +
+          '<a href="' + SCRIPT_URL + '?page=upload" class="btn btn-secondary">Upload New</a>' +
+        '</div>';
+      // Hide the options/tabs since there's nothing to analyze
+      document.querySelector('.options-panel').style.display = 'none';
+      document.querySelector('.analysis-tabs').style.display = 'none';
+    }
+
     function loadAssessment() {
       showLoading('Loading assessment...');
-      
+
       console.log('Calling getAssessmentData for:', currentAssessmentId);
-      
+
       google.script.run
         .withSuccessHandler(function(data) {
           hideLoading();
           console.log('Assessment data received:', data);
-          
+
           if (!data || !data.assessment) {
-            showToast('Assessment data not found', 'error');
-            setTimeout(() => {
-              window.location.href = SCRIPT_URL + '?page=dashboard';
-            }, 2000);
+            console.error('getAssessmentData returned:', JSON.stringify(data));
+            showFatalError(
+              'The server returned empty data for this assessment (ID: ' +
+              (currentAssessmentId || 'none').substring(0, 12) + '...). ' +
+              'This may happen if the upload did not complete. Try uploading again.'
+            );
             return;
           }
-          
+
           document.getElementById('assessmentTitle').textContent = data.assessment.name || 'Assessment Analysis';
-          document.getElementById('assessmentMeta').textContent = 
-            `${data.assessment.student_count || 0} students • ${data.assessment.question_count || 0} questions • ${formatDate(data.assessment.date_uploaded)}`;
-          
+          document.getElementById('assessmentMeta').textContent =
+            (data.assessment.student_count || 0) + ' students \u2022 ' +
+            (data.assessment.question_count || 0) + ' questions \u2022 ' +
+            formatDate(data.assessment.date_uploaded);
+
           // Store assessment data for analysis
           window.assessmentData = data;
-          
+
           // Check if there are existing results
           loadExistingResults();
         })
         .withFailureHandler(function(error) {
           hideLoading();
           console.error('Error loading assessment:', error);
-          showToast('Error loading assessment: ' + error.message, 'error');
-          
-          // Redirect to dashboard after error
-          setTimeout(() => {
-            window.location.href = SCRIPT_URL + '?page=dashboard';
-          }, 3000);
+          showFatalError(error.message || 'Unknown error loading assessment.');
         })
         .getAssessmentData(currentAssessmentId);
     }

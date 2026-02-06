@@ -779,34 +779,63 @@ function getAssessmentData(assessmentId) {
     }
 
     // Normalize the ID for comparison (Sheets can coerce types)
-    const normalId = assessmentId.toString().trim();
+    const normalId = String(assessmentId).trim();
 
     const ss = getOrCreateDatabase();
 
     // Get assessment metadata
     const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
-    if (!assessmentSheet) {
-      throw new Error('Assessments sheet not found');
+    if (!assessmentSheet || assessmentSheet.getLastRow() < 2) {
+      throw new Error('Assessments sheet is empty or missing');
     }
 
     const assessmentData = assessmentSheet.getDataRange().getValues();
     const assessmentHeaders = assessmentData[0];
 
+    // Find the ID column robustly - try exact, then case-insensitive, then column 0
+    var idColIdx = assessmentHeaders.indexOf('id');
+    if (idColIdx === -1) {
+      for (var hi = 0; hi < assessmentHeaders.length; hi++) {
+        if (String(assessmentHeaders[hi]).toLowerCase().trim() === 'id') {
+          idColIdx = hi;
+          break;
+        }
+      }
+    }
+    if (idColIdx === -1) {
+      idColIdx = 0; // assume first column is the ID
+    }
+
     let assessment = null;
-    const idColIdx = assessmentHeaders.indexOf('id');
 
     for (let i = 1; i < assessmentData.length; i++) {
-      if (String(assessmentData[i][idColIdx]).trim() === normalId) {
+      var cellVal = assessmentData[i][idColIdx];
+      if (cellVal != null && String(cellVal).trim() === normalId) {
         assessment = {};
         assessmentHeaders.forEach((h, idx) => {
-          assessment[h] = assessmentData[i][idx];
+          var val = assessmentData[i][idx];
+          // Convert Date objects to ISO strings so google.script.run serializes safely
+          if (val instanceof Date) {
+            val = val.toISOString();
+          }
+          assessment[String(h).trim()] = val;
         });
         break;
       }
     }
 
     if (!assessment) {
-      throw new Error('Assessment not found: ' + normalId);
+      // Diagnostic info to help debug
+      var rowCount = assessmentData.length - 1;
+      var sampleIds = [];
+      for (var di = 1; di < Math.min(assessmentData.length, 4); di++) {
+        sampleIds.push(String(assessmentData[di][idColIdx]).substring(0, 12));
+      }
+      throw new Error(
+        'Assessment not found. ID="' + normalId.substring(0, 12) + '..." ' +
+        '(col=' + idColIdx + ', rows=' + rowCount +
+        ', samples=[' + sampleIds.join(', ') + '...])'
+      );
     }
 
     // Check permissions - teachers can only see their own assessments
@@ -816,8 +845,14 @@ function getAssessmentData(assessmentId) {
 
     // Get raw data
     const rawDataSheet = ss.getSheetByName(CONFIG.sheets.rawData);
-    if (!rawDataSheet) {
-      throw new Error('Raw data sheet not found');
+    if (!rawDataSheet || rawDataSheet.getLastRow() < 2) {
+      return {
+        assessment: assessment,
+        solRow: [],
+        header: [],
+        students: [],
+        periodMap: {}
+      };
     }
 
     const rawData = rawDataSheet.getDataRange().getValues();
@@ -827,7 +862,7 @@ function getAssessmentData(assessmentId) {
     const students = [];
 
     for (let i = 1; i < rawData.length; i++) {
-      if (String(rawData[i][0]).trim() === normalId) {
+      if (rawData[i][0] != null && String(rawData[i][0]).trim() === normalId) {
         const rowType = rawData[i][2];
         try {
           const data = JSON.parse(rawData[i][3]);
@@ -849,12 +884,12 @@ function getAssessmentData(assessmentId) {
       const periodData = periodSheet.getDataRange().getValues();
 
       for (let i = 1; i < periodData.length; i++) {
-        if (String(periodData[i][0]).trim() === normalId) {
+        if (periodData[i][0] != null && String(periodData[i][0]).trim() === normalId) {
           periodMap[periodData[i][1]] = periodData[i][4]; // student_id -> period
         }
       }
     }
-    
+
     return {
       assessment: assessment,
       solRow: solRow,

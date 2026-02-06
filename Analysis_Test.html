@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <title>Analysis Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: #1a1a2e;
+      color: white;
+    }
+    .info { background: #2d3748; padding: 16px; margin: 16px 0; border-radius: 8px; }
+    .success { color: #10b981; }
+    .error { color: #ef4444; }
+    button { 
+      background: #00a14b; 
+      color: white; 
+      border: none; 
+      padding: 12px 24px; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      margin: 8px;
+    }
+    #log { background: #0d1421; padding: 16px; margin-top: 16px; white-space: pre-wrap; font-family: monospace; max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>Analysis Page Test</h1>
+  
+  <div class="info">
+    <h3>Template Variables:</h3>
+    <p><strong>scriptUrl:</strong> <span id="scriptUrl">Loading...</span></p>
+    <p><strong>assessmentId:</strong> <span id="assessmentId">Loading...</span></p>
+    <p><strong>user.role:</strong> <span id="userRole">Loading...</span></p>
+    <p><strong>user.email:</strong> <span id="userEmail">Loading...</span></p>
+  </div>
+  
+  <div>
+    <button onclick="testGetAssessmentData()">Test getAssessmentData()</button>
+    <button onclick="testGetAssessmentList()">Test getAssessmentList()</button>
+    <button onclick="window.location.href=scriptUrl+'?page=dashboard'">Go to Dashboard</button>
+  </div>
+  
+  <div id="log"></div>
+  
+  <script>
+    // Get template variables
+    var scriptUrl = '<?= scriptUrl ?>';
+    var assessmentId = '<?= assessmentId ?>';
+    var userRole = '<?= user.role ?>';
+    var userEmail = '<?= user.email ?>';
+    
+    function log(msg) {
+      var logDiv = document.getElementById('log');
+      var time = new Date().toLocaleTimeString();
+      logDiv.innerHTML += '[' + time + '] ' + msg + '\n';
+      console.log(msg);
+    }
+    
+    // Display template variables
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('scriptUrl').textContent = scriptUrl || '(empty)';
+      document.getElementById('assessmentId').textContent = assessmentId || '(empty)';
+      document.getElementById('userRole').textContent = userRole || '(empty)';
+      document.getElementById('userEmail').textContent = userEmail || '(empty)';
+      
+      log('Page loaded successfully!');
+      log('scriptUrl: ' + scriptUrl);
+      log('assessmentId: ' + assessmentId);
+      log('userRole: ' + userRole);
+    });
+    
+    function testGetAssessmentData() {
+      if (!assessmentId) {
+        log('ERROR: No assessment ID provided');
+        return;
+      }
+      
+      log('Calling getAssessmentData(' + assessmentId + ')...');
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          log('SUCCESS: Got assessment data');
+          log('Data: ' + JSON.stringify(data, null, 2));
+        })
+        .withFailureHandler(function(error) {
+          log('ERROR: ' + error.message);
+        })
+        .getAssessmentData(assessmentId);
+    }
+    
+    function testGetAssessmentList() {
+      log('Calling getAssessmentList()...');
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          log('SUCCESS: Got assessment list');
+          log('Count: ' + (data ? data.length : 0));
+          log('Data: ' + JSON.stringify(data, null, 2));
+        })
+        .withFailureHandler(function(error) {
+          log('ERROR: ' + error.message);
+        })
+        .getAssessmentList();
+    }
+  </script>
+</body>
+</html>

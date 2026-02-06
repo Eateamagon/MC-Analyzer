@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    /* Upload-specific styles */
+    .upload-zone {
+      border: 2px dashed rgba(255, 255, 255, 0.2);
+      border-radius: var(--border-radius);
+      padding: 60px 40px;
+      text-align: center;
+      transition: all var(--transition-normal);
+      cursor: pointer;
+      background: var(--bg-surface-light);
+    }
+    
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--primary);
+      background: rgba(0, 161, 75, 0.1);
+    }
+    
+    .upload-zone .material-icons {
+      font-size: 64px;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+    
+    .upload-zone h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    
+    .upload-zone p {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    .file-info {
+      display: none;
+      background: var(--bg-surface);
+      border-radius: var(--border-radius-sm);
+      padding: 16px 20px;
+      margin-top: 20px;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .file-info.active {
+      display: flex;
+    }
+    
+    .file-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(0, 161, 75, 0.15);
+      border-radius: var(--border-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+    
+    .file-details {
+      flex: 1;
+    }
+    
+    .file-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    
+    .file-size {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .file-remove {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 50%;
+      transition: all var(--transition-fast);
+    }
+    
+    .file-remove:hover {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--color-error);
+    }
+    
+    .metadata-form {
+      display: none;
+      margin-top: 24px;
+    }
+    
+    .metadata-form.active {
+      display: block;
+    }
+    
+    .metadata-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    
+    .step-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 32px;
+    }
+    
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--bg-surface-light);
+    }
+    
+    .step.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .step.completed {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--color-strength);
+    }
+    
+    .step-number {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+    
+    .step.active .step-number {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    .step.completed .step-number {
+      background: var(--color-strength);
+      color: white;
+    }
+    
+    .step-content {
+      display: none;
+    }
+    
+    .step-content.active {
+      display: block;
+    }
+    
+    .periods-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    
+    .periods-table th,
+    .periods-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .periods-table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    
+    .periods-table input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-surface-light);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--border-radius-sm);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+    
+    .periods-table input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .teacher-group {
+      margin-bottom: 24px;
+    }
+    
+    .teacher-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-hover);
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+    
+    .teacher-header:hover {
+      background: rgba(0, 161, 75, 0.1);
+    }
+    
+    .teacher-header .material-icons {
+      color: var(--primary);
+    }
+    
+    .teacher-name {
+      font-weight: 500;
+    }
+    
+    .teacher-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .bulk-period-input {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      background: var(--bg-surface);
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 16px;
+    }
+    
+    .bulk-period-input input {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📊</span>
+        <span class="logo-text">MC Analyzer</span>
+      </div>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl ?>?page=dashboard" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=upload" class="nav-item active">
+        <span class="material-icons">cloud_upload</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=history" class="nav-item">
+        <span class="material-icons">history</span>
+        <span>Assessment History</span>
+      </a>
+    </div>
+    
+    <? if (user.role !== 'teacher') { ?>
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl ?>?page=admin" class="nav-item">
+        <span class="material-icons">admin_panel_settings</span>
+        <span>Admin Panel</span>
+      </a>
+    </div>
+    <? } ?>
+    
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user.name || user.email.split('@')[0] ?></div>
+          <div class="user-role"><?= user.role === 'division_admin' ? 'Division Admin' : user.role === 'school_admin' ? 'School Admin' : 'Teacher' ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h1>Upload Assessment Data</h1>
+        <span class="header-subtitle">Import your Mastery Connect CSV export</span>
+      </div>
+    </header>
+
+    <div class="dashboard-content">
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        <div class="step active" id="step1Indicator">
+          <div class="step-number">1</div>
+          <span>Upload File</span>
+        </div>
+        <div class="step" id="step2Indicator">
+          <div class="step-number">2</div>
+          <span>Add Details</span>
+        </div>
+        <div class="step" id="step3Indicator">
+          <div class="step-number">3</div>
+          <span>Class Periods</span>
+        </div>
+      </div>
+
+      <!-- Step 1: Upload -->
+      <div class="card step-content active" id="step1Content">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">upload_file</span>
+            Upload CSV File
+          </h2>
+        </div>
+        <div class="card-body">
+          <div class="upload-zone" id="uploadZone">
+            <span class="material-icons">cloud_upload</span>
+            <h3>Drop your CSV file here</h3>
+            <p>or click to browse files</p>
+            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+            <button class="btn btn-secondary">Browse Files</button>
+          </div>
+          
+          <div class="file-info" id="fileInfo">
+            <div class="file-icon">
+              <span class="material-icons">description</span>
+            </div>
+            <div class="file-details">
+              <div class="file-name" id="fileName"></div>
+              <div class="file-size" id="fileSize"></div>
+            </div>
+            <button class="file-remove" onclick="removeFile()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          
+          <!-- Existing Assessments Section -->
+          <div id="existingAssessmentsSection" style="margin-top: 24px; display: none;">
+            <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+              <h4 style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <span class="material-icons" style="color: var(--primary);">history</span>
+                Your Recent Assessments
+              </h4>
+              <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+                You've already uploaded these assessments. Click to view their analysis:
+              </p>
+              <div id="existingAssessmentsList"></div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 24px; text-align: right;">
+            <button class="btn btn-primary" id="step1Next" onclick="goToStep(2)" disabled>
+              Continue
+              <span class="material-icons">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Metadata -->
+      <div class="card step-content" id="step2Content">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">info</span>
+            Assessment Details
+          </h2>
+        </div>
+        <div class="card-body">
+          <div class="metadata-grid">
+            <div class="form-group">
+              <label>Assessment Name *</label>
+              <input type="text" id="assessmentName" class="form-input" placeholder="e.g., Q2 Math Benchmark">
+            </div>
+            <div class="form-group">
+              <label>Subject</label>
+              <select id="assessmentSubject" class="form-input">
+                <option value="">Select subject...</option>
+                <option value="Math">Math</option>
+                <option value="English">English/Language Arts</option>
+                <option value="Science">Science</option>
+                <option value="Civics">Civics/Social Studies</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Grade Level</label>
+              <select id="gradeLevel" class="form-input">
+                <option value="">Select grade...</option>
+                <option value="K">Kindergarten</option>
+                <option value="1">1st Grade</option>
+                <option value="2">2nd Grade</option>
+                <option value="3">3rd Grade</option>
+                <option value="4">4th Grade</option>
+                <option value="5">5th Grade</option>
+                <option value="6">6th Grade</option>
+                <option value="7">7th Grade</option>
+                <option value="8">8th Grade</option>
+                <option value="9">9th Grade</option>
+                <option value="10">10th Grade</option>
+                <option value="11">11th Grade</option>
+                <option value="12">12th Grade</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Assessment Type</label>
+              <select id="assessmentType" class="form-input">
+                <option value="">Select type...</option>
+                <option value="Benchmark Q1">Benchmark Q1</option>
+                <option value="Benchmark Q2">Benchmark Q2</option>
+                <option value="Benchmark Q3">Benchmark Q3</option>
+                <option value="Benchmark Q4">Benchmark Q4</option>
+                <option value="Formative">Formative Assessment</option>
+                <option value="Summative">Summative Assessment</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Date Administered</label>
+              <input type="date" id="dateAdministered" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>School</label>
+              <select id="assessmentSchool" class="form-input">
+                <option value="">Select school...</option>
+                <? config.schools.forEach(function(school) { ?>
+                  <option value="<?= school ?>" <?= school === user.school ? 'selected' : '' ?>><?= school ?></option>
+                <? }); ?>
+              </select>
+            </div>
+          </div>
+          
+          <div style="margin-top: 24px; display: flex; justify-content: space-between;">
+            <button class="btn btn-ghost" onclick="goToStep(1)">
+              <span class="material-icons">arrow_back</span>
+              Back
+            </button>
+            <button class="btn btn-primary" onclick="uploadAndContinue()">
+              Upload & Continue
+              <span class="material-icons">arrow_forward</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Class Periods -->
+      <div class="card step-content" id="step3Content">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">schedule</span>
+            Assign Class Periods
+          </h2>
+        </div>
+        <div class="card-body">
+          <p class="mb-2" style="color: var(--text-muted);">
+            Assign class periods to students for accurate small group organization. You can skip this step and add periods later.
+          </p>
+          
+          <div class="bulk-period-input">
+            <input type="text" id="bulkPeriodValue" class="form-input" placeholder="Enter period (e.g., Period 1, Block A)">
+            <button class="btn btn-secondary" onclick="applyBulkPeriod()">
+              Apply to Selected
+            </button>
+            <button class="btn btn-ghost" onclick="selectAll()">
+              Select All
+            </button>
+          </div>
+          
+          <div id="periodsList">
+            <!-- Dynamically populated -->
+          </div>
+          
+          <div style="margin-top: 24px; display: flex; justify-content: space-between;">
+            <button class="btn btn-ghost" onclick="skipPeriods()">
+              Skip for Now
+            </button>
+            <button class="btn btn-primary" onclick="savePeriods()">
+              Save & Run Analysis
+              <span class="material-icons">analytics</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <?!= include('Scripts'); ?>
+  
+  <script>
+    // Base URL for navigation
+    const SCRIPT_URL = '<?= scriptUrl ?>';
+    
+    let uploadedFile = null;
+    let csvContent = null;
+    let currentAssessmentId = null;
+    let studentsList = [];
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      setupUploadZone();
+      loadExistingAssessments();
+    });
+    
+    function loadExistingAssessments() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          if (assessments && assessments.length > 0) {
+            const section = document.getElementById('existingAssessmentsSection');
+            const list = document.getElementById('existingAssessmentsList');
+            
+            section.style.display = 'block';
+            
+            list.innerHTML = assessments.slice(0, 5).map(a => `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-surface-light); border-radius: 6px; margin-bottom: 8px; cursor: pointer;" 
+                   onclick="window.location.href=SCRIPT_URL+'?page=analysis&id=${a.id}'">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span class="material-icons" style="color: var(--primary); font-size: 18px;">description</span>
+                  <div>
+                    <div style="font-weight: 500; font-size: 14px;">${a.name || 'Unnamed'}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">
+                      ${a.subject || 'No subject'} • ${a.studentCount || 0} students • ${formatDate(a.dateUploaded)}
+                    </div>
+                  </div>
+                </div>
+                <span class="material-icons" style="color: var(--text-muted);">chevron_right</span>
+              </div>
+            `).join('');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.log('Could not load existing assessments:', error);
+        })
+        .getUserExistingAssessments();
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return 'Unknown date';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function setupUploadZone() {
+      const zone = document.getElementById('uploadZone');
+      const input = document.getElementById('fileInput');
+      
+      zone.addEventListener('click', () => input.click());
+      
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+      });
+      
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('dragover');
+      });
+      
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.csv')) {
+          handleFile(file);
+        } else {
+          showToast('Please upload a CSV file', 'error');
+        }
+      });
+      
+      input.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          handleFile(file);
+        }
+      });
+    }
+    
+    function handleFile(file) {
+      uploadedFile = file;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        csvContent = e.target.result;
+        
+        // Display file info
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        document.getElementById('fileInfo').classList.add('active');
+        document.getElementById('step1Next').disabled = false;
+        
+        // Try to detect assessment name from file
+        const baseName = file.name.replace('.csv', '').replace(/_/g, ' ');
+        document.getElementById('assessmentName').value = baseName;
+        
+        showToast('File loaded successfully!', 'success');
+      };
+      
+      reader.onerror = () => {
+        showToast('Error reading file', 'error');
+      };
+      
+      reader.readAsText(file);
+    }
+    
+    function removeFile() {
+      uploadedFile = null;
+      csvContent = null;
+      document.getElementById('fileInfo').classList.remove('active');
+      document.getElementById('step1Next').disabled = true;
+      document.getElementById('fileInput').value = '';
+    }
+    
+    function goToStep(step) {
+      // Update step indicators
+      for (let i = 1; i <= 3; i++) {
+        const indicator = document.getElementById(`step${i}Indicator`);
+        const content = document.getElementById(`step${i}Content`);
+        
+        indicator.classList.remove('active', 'completed');
+        content.classList.remove('active');
+        
+        if (i < step) {
+          indicator.classList.add('completed');
+        } else if (i === step) {
+          indicator.classList.add('active');
+          content.classList.add('active');
+        }
+      }
+    }
+    
+    function uploadAndContinue() {
+      const name = document.getElementById('assessmentName').value.trim();
+      if (!name) {
+        showToast('Please enter an assessment name', 'error');
+        return;
+      }
+      
+      showLoading('Uploading assessment data...');
+      
+      const metadata = {
+        name: name,
+        subject: document.getElementById('assessmentSubject').value,
+        gradeLevel: document.getElementById('gradeLevel').value,
+        assessmentType: document.getElementById('assessmentType').value,
+        dateAdministered: document.getElementById('dateAdministered').value,
+        school: document.getElementById('assessmentSchool').value
+      };
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          
+          // Check if this is a duplicate
+          if (result.isDuplicate) {
+            showDuplicateDialog(result);
+            return;
+          }
+          
+          if (!result.success) {
+            showToast(result.message || 'Upload failed', 'error');
+            return;
+          }
+          
+          currentAssessmentId = result.assessmentId;
+          studentsList = result.students;
+          
+          showToast(`Uploaded ${result.studentCount} students with ${result.questionCount} questions`, 'success');
+          
+          // Build periods list
+          buildPeriodsList();
+          goToStep(3);
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Upload failed: ' + error.message, 'error');
+        })
+        .processCSVUpload({
+          csvContent: csvContent,
+          metadata: metadata
+        });
+    }
+    
+    function showDuplicateDialog(result) {
+      const modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'duplicateModal';
+      modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px;">
+          <div class="modal-header">
+            <h2><span class="material-icons" style="color: var(--color-monitor); vertical-align: middle;">warning</span> Duplicate Found</h2>
+          </div>
+          <div class="modal-body">
+            <p>${result.message}</p>
+            <p style="margin-top: 12px; color: var(--text-muted);">Would you like to view the existing analysis or upload anyway?</p>
+          </div>
+          <div class="modal-footer" style="flex-wrap: wrap; gap: 8px;">
+            <button class="btn btn-ghost" onclick="closeDuplicateDialog()">Cancel</button>
+            <button class="btn btn-secondary" onclick="forceUpload()">Upload Anyway</button>
+            <button class="btn btn-primary" onclick="viewExistingAnalysis('${result.existingId}')">
+              <span class="material-icons">analytics</span>
+              View Existing
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+    
+    function closeDuplicateDialog() {
+      const modal = document.getElementById('duplicateModal');
+      if (modal) modal.remove();
+    }
+    
+    function viewExistingAnalysis(id) {
+      window.location.href = SCRIPT_URL + '?page=analysis&id=' + id;
+    }
+    
+    function forceUpload() {
+      closeDuplicateDialog();
+      
+      // Modify the assessment name to make it unique
+      const nameInput = document.getElementById('assessmentName');
+      const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      nameInput.value = nameInput.value + ' (' + timestamp + ')';
+      
+      // Re-run upload
+      uploadAndContinue();
+    }
+    
+    function buildPeriodsList() {
+      const container = document.getElementById('periodsList');
+      
+      // Group by teacher
+      const byTeacher = {};
+      studentsList.forEach(s => {
+        if (!byTeacher[s.teacher]) byTeacher[s.teacher] = [];
+        byTeacher[s.teacher].push(s);
+      });
+      
+      let html = '';
+      Object.keys(byTeacher).sort().forEach(teacher => {
+        const students = byTeacher[teacher];
+        html += `
+          <div class="teacher-group">
+            <div class="teacher-header" onclick="toggleTeacher(this)">
+              <span class="material-icons">person</span>
+              <span class="teacher-name">${teacher}</span>
+              <span class="teacher-count">${students.length} students</span>
+              <span class="material-icons" style="margin-left: auto;">expand_more</span>
+            </div>
+            <div class="teacher-students">
+              <table class="periods-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;"><input type="checkbox" onchange="toggleTeacherCheckboxes(this, '${teacher}')"></th>
+                    <th>Student</th>
+                    <th style="width: 150px;">Class Period</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        students.forEach(s => {
+          html += `
+                  <tr>
+                    <td><input type="checkbox" class="student-checkbox" data-teacher="${teacher}" data-id="${s.studentId}"></td>
+                    <td>${s.studentName}</td>
+                    <td>
+                      <input type="text" 
+                             class="period-input" 
+                             data-id="${s.studentId}" 
+                             value="${s.period || ''}" 
+                             placeholder="Enter period">
+                    </td>
+                  </tr>
+          `;
+        });
+        
+        html += `
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    function toggleTeacher(header) {
+      const students = header.nextElementSibling;
+      const icon = header.querySelector('.material-icons:last-child');
+      
+      if (students.style.display === 'none') {
+        students.style.display = 'block';
+        icon.textContent = 'expand_more';
+      } else {
+        students.style.display = 'none';
+        icon.textContent = 'expand_less';
+      }
+    }
+    
+    function toggleTeacherCheckboxes(masterCheckbox, teacher) {
+      const checkboxes = document.querySelectorAll(`.student-checkbox[data-teacher="${teacher}"]`);
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+    
+    function selectAll() {
+      const checkboxes = document.querySelectorAll('.student-checkbox');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      checkboxes.forEach(cb => cb.checked = !allChecked);
+    }
+    
+    function applyBulkPeriod() {
+      const value = document.getElementById('bulkPeriodValue').value.trim();
+      if (!value) {
+        showToast('Enter a period value first', 'warning');
+        return;
+      }
+      
+      const checked = document.querySelectorAll('.student-checkbox:checked');
+      if (checked.length === 0) {
+        showToast('Select students first', 'warning');
+        return;
+      }
+      
+      checked.forEach(cb => {
+        const id = cb.dataset.id;
+        const input = document.querySelector(`.period-input[data-id="${id}"]`);
+        if (input) input.value = value;
+      });
+      
+      showToast(`Applied "${value}" to ${checked.length} students`, 'success');
+    }
+    
+    function collectPeriodData() {
+      const inputs = document.querySelectorAll('.period-input');
+      const data = [];
+      
+      inputs.forEach(input => {
+        data.push({
+          studentId: input.dataset.id,
+          period: input.value.trim()
+        });
+      });
+      
+      return data;
+    }
+    
+    function skipPeriods() {
+      showConfirm(
+        'Skip Class Periods?',
+        'You can add class periods later. Small groups will use "Unknown" for period assignments.',
+        () => {
+          window.location.href = SCRIPT_URL + '?page=analysis&id=' + currentAssessmentId;
+        }
+      );
+    }
+    
+    function savePeriods() {
+      const periodData = collectPeriodData();
+      
+      showLoading('Saving class periods...');
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          hideLoading();
+          showToast('Class periods saved!', 'success');
+          window.location.href = SCRIPT_URL + '?page=analysis&id=' + currentAssessmentId;
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Error saving periods: ' + error.message, 'error');
+        })
+        .updateClassPeriods(currentAssessmentId, periodData);
+    }
+  </script>
+</body>
+</html>

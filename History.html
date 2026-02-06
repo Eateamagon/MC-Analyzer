@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    .filters-bar {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding: 20px;
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .filter-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    
+    .search-input {
+      position: relative;
+    }
+    
+    .search-input .material-icons {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+    
+    .search-input input {
+      padding-left: 44px;
+      min-width: 280px;
+    }
+    
+    .assessments-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+      gap: 20px;
+    }
+    
+    .assessment-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+      transition: all var(--transition-normal);
+      cursor: pointer;
+    }
+    
+    .assessment-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    .card-banner {
+      height: 8px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+    }
+    
+    .card-banner.pending {
+      background: linear-gradient(90deg, var(--color-monitor) 0%, #d97706 100%);
+    }
+    
+    .card-content {
+      padding: 20px;
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .card-school {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .card-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .badge-ready {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-strength);
+    }
+    
+    .badge-pending {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--color-monitor);
+    }
+    
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .meta-tag {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-surface-light);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    
+    .meta-tag .material-icons {
+      font-size: 14px;
+      color: var(--primary);
+    }
+    
+    .card-stats {
+      display: flex;
+      gap: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .stat {
+      text-align: center;
+    }
+    
+    .stat-number {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding: 16px 20px;
+      background: var(--bg-surface-light);
+    }
+    
+    .card-actions .btn {
+      flex: 1;
+      padding: 10px 16px;
+      font-size: 13px;
+    }
+    
+    .empty-history {
+      text-align: center;
+      padding: 80px 40px;
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+    }
+    
+    .empty-history .material-icons {
+      font-size: 64px;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+    
+    .empty-history h3 {
+      font-size: 20px;
+      margin-bottom: 8px;
+    }
+    
+    .empty-history p {
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+    
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 32px;
+    }
+    
+    .page-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .page-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .page-btn.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+    
+    .view-toggle {
+      display: flex;
+      background: var(--bg-surface-light);
+      border-radius: 8px;
+      padding: 4px;
+    }
+    
+    .view-toggle button {
+      padding: 8px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all var(--transition-fast);
+    }
+    
+    .view-toggle button.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .list-view .assessment-card {
+      display: flex;
+      align-items: stretch;
+    }
+    
+    .list-view .card-banner {
+      width: 8px;
+      height: auto;
+    }
+    
+    .list-view .card-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    
+    .list-view .card-header {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    
+    .list-view .card-meta {
+      margin-bottom: 0;
+    }
+    
+    .list-view .card-stats {
+      border-top: none;
+      padding-top: 0;
+    }
+    
+    .list-view .card-actions {
+      width: auto;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📊</span>
+        <span class="logo-text">MC Analyzer</span>
+      </div>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl ?>?page=dashboard" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=upload" class="nav-item">
+        <span class="material-icons">cloud_upload</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=history" class="nav-item active">
+        <span class="material-icons">history</span>
+        <span>Assessment History</span>
+      </a>
+    </div>
+    
+    <? if (user.role !== 'teacher') { ?>
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl ?>?page=admin" class="nav-item">
+        <span class="material-icons">admin_panel_settings</span>
+        <span>Admin Panel</span>
+      </a>
+    </div>
+    <? } ?>
+    
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user.name || user.email.split('@')[0] ?></div>
+          <div class="user-role"><?= user.role === 'division_admin' ? 'Division Admin' : user.role === 'school_admin' ? 'School Admin' : 'Teacher' ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h1>Assessment History</h1>
+        <span class="header-subtitle">View and manage all your assessments</span>
+      </div>
+      <div class="header-right">
+        <div class="view-toggle">
+          <button class="active" onclick="setView('grid')" title="Grid View">
+            <span class="material-icons">grid_view</span>
+          </button>
+          <button onclick="setView('list')" title="List View">
+            <span class="material-icons">view_list</span>
+          </button>
+        </div>
+        <button class="btn btn-primary" onclick="window.location.href=SCRIPT_URL+'?page=upload'">
+          <span class="material-icons">add</span>
+          New Assessment
+        </button>
+      </div>
+    </header>
+
+    <div class="dashboard-content">
+      <!-- Filters -->
+      <div class="filters-bar">
+        <div class="filter-group search-input">
+          <span class="material-icons">search</span>
+          <input type="text" id="searchInput" class="form-input" placeholder="Search assessments..." oninput="filterAssessments()">
+        </div>
+        
+        <div class="filter-group">
+          <span class="filter-label">Subject</span>
+          <select id="subjectFilter" class="form-input" onchange="filterAssessments()">
+            <option value="">All Subjects</option>
+            <option value="Math">Math</option>
+            <option value="English">English</option>
+            <option value="Science">Science</option>
+            <option value="Civics">Civics</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <span class="filter-label">Grade</span>
+          <select id="gradeFilter" class="form-input" onchange="filterAssessments()">
+            <option value="">All Grades</option>
+            <option value="K">Kindergarten</option>
+            <option value="1">1st</option>
+            <option value="2">2nd</option>
+            <option value="3">3rd</option>
+            <option value="4">4th</option>
+            <option value="5">5th</option>
+            <option value="6">6th</option>
+            <option value="7">7th</option>
+            <option value="8">8th</option>
+            <option value="9">9th</option>
+            <option value="10">10th</option>
+            <option value="11">11th</option>
+            <option value="12">12th</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <span class="filter-label">Status</span>
+          <select id="statusFilter" class="form-input" onchange="filterAssessments()">
+            <option value="">All Status</option>
+            <option value="ready">Ready</option>
+            <option value="pending_periods">Needs Setup</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <span class="filter-label">Sort By</span>
+          <select id="sortFilter" class="form-input" onchange="filterAssessments()">
+            <option value="date_desc">Newest First</option>
+            <option value="date_asc">Oldest First</option>
+            <option value="name_asc">Name (A-Z)</option>
+            <option value="name_desc">Name (Z-A)</option>
+            <option value="students_desc">Most Students</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Assessments Grid -->
+      <div id="assessmentsContainer" class="assessments-grid">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <span>Loading assessments...</span>
+        </div>
+      </div>
+      
+      <!-- Pagination -->
+      <div id="pagination" class="pagination" style="display: none;"></div>
+    </div>
+  </main>
+
+  <?!= include('Scripts'); ?>
+  
+  <script>
+    // Base URL for navigation
+    const SCRIPT_URL = '<?= scriptUrl ?>';
+    
+    let allAssessments = [];
+    let filteredAssessments = [];
+    let currentPage = 1;
+    const itemsPerPage = 12;
+    let currentView = 'grid';
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      loadAssessments();
+    });
+    
+    function loadAssessments() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          allAssessments = assessments || [];
+          filteredAssessments = [...allAssessments];
+          renderAssessments();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('assessmentsContainer').innerHTML = `
+            <div class="empty-history">
+              <span class="material-icons">error</span>
+              <h3>Error Loading Assessments</h3>
+              <p>${error.message}</p>
+              <button class="btn btn-primary" onclick="loadAssessments()">Try Again</button>
+            </div>
+          `;
+        })
+        .getAssessmentList();
+    }
+    
+    function filterAssessments() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const subject = document.getElementById('subjectFilter').value;
+      const grade = document.getElementById('gradeFilter').value;
+      const status = document.getElementById('statusFilter').value;
+      const sort = document.getElementById('sortFilter').value;
+      
+      filteredAssessments = allAssessments.filter(a => {
+        const matchesSearch = !search || 
+          (a.name && a.name.toLowerCase().includes(search)) ||
+          (a.teacher_email && a.teacher_email.toLowerCase().includes(search));
+        const matchesSubject = !subject || a.subject === subject;
+        const matchesGrade = !grade || a.grade_level === grade;
+        const matchesStatus = !status || a.status === status;
+        
+        return matchesSearch && matchesSubject && matchesGrade && matchesStatus;
+      });
+      
+      // Sort
+      filteredAssessments.sort((a, b) => {
+        switch (sort) {
+          case 'date_asc':
+            return new Date(a.date_uploaded) - new Date(b.date_uploaded);
+          case 'name_asc':
+            return (a.name || '').localeCompare(b.name || '');
+          case 'name_desc':
+            return (b.name || '').localeCompare(a.name || '');
+          case 'students_desc':
+            return (b.student_count || 0) - (a.student_count || 0);
+          default: // date_desc
+            return new Date(b.date_uploaded) - new Date(a.date_uploaded);
+        }
+      });
+      
+      currentPage = 1;
+      renderAssessments();
+    }
+    
+    function renderAssessments() {
+      const container = document.getElementById('assessmentsContainer');
+      container.className = currentView === 'list' ? 'assessments-grid list-view' : 'assessments-grid';
+      
+      if (filteredAssessments.length === 0) {
+        container.innerHTML = `
+          <div class="empty-history" style="grid-column: 1/-1;">
+            <span class="material-icons">folder_open</span>
+            <h3>No Assessments Found</h3>
+            <p>${allAssessments.length === 0 ? "You haven't uploaded any assessments yet." : "No assessments match your filters."}</p>
+            <button class="btn btn-primary" onclick="window.location.href=SCRIPT_URL+'?page=upload'">
+              <span class="material-icons">add</span>
+              Upload Assessment
+            </button>
+          </div>
+        `;
+        document.getElementById('pagination').style.display = 'none';
+        return;
+      }
+      
+      // Paginate
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const pageAssessments = filteredAssessments.slice(start, end);
+      
+      container.innerHTML = pageAssessments.map(a => `
+        <div class="assessment-card" onclick="viewAssessment('${a.id}')">
+          <div class="card-banner ${a.status === 'pending_periods' ? 'pending' : ''}"></div>
+          <div class="card-content">
+            <div class="card-header">
+              <div>
+                <div class="card-title">${a.name || 'Unnamed Assessment'}</div>
+                <div class="card-school">${a.school || 'No school assigned'}</div>
+              </div>
+              <span class="card-badge ${a.status === 'ready' ? 'badge-ready' : 'badge-pending'}">
+                ${a.status === 'ready' ? 'Ready' : 'Setup'}
+              </span>
+            </div>
+            
+            <div class="card-meta">
+              ${a.subject ? `<span class="meta-tag"><span class="material-icons">book</span>${a.subject}</span>` : ''}
+              ${a.grade_level ? `<span class="meta-tag"><span class="material-icons">school</span>Grade ${a.grade_level}</span>` : ''}
+              ${a.assessment_type ? `<span class="meta-tag"><span class="material-icons">assignment</span>${a.assessment_type}</span>` : ''}
+            </div>
+            
+            <div class="card-stats">
+              <div class="stat">
+                <div class="stat-number">${a.student_count || 0}</div>
+                <div class="stat-label">Students</div>
+              </div>
+              <div class="stat">
+                <div class="stat-number">${a.question_count || 0}</div>
+                <div class="stat-label">Questions</div>
+              </div>
+              <div class="stat">
+                <div class="stat-number">${formatDateShort(a.date_uploaded)}</div>
+                <div class="stat-label">Uploaded</div>
+              </div>
+            </div>
+          </div>
+          <div class="card-actions" onclick="event.stopPropagation()">
+            <button class="btn btn-secondary" onclick="viewAssessment('${a.id}')">
+              <span class="material-icons">analytics</span>
+              Analyze
+            </button>
+            <button class="btn btn-ghost" onclick="deleteAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
+              <span class="material-icons">delete</span>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      
+      // Render pagination
+      renderPagination();
+    }
+    
+    function renderPagination() {
+      const totalPages = Math.ceil(filteredAssessments.length / itemsPerPage);
+      const pagination = document.getElementById('pagination');
+      
+      if (totalPages <= 1) {
+        pagination.style.display = 'none';
+        return;
+      }
+      
+      pagination.style.display = 'flex';
+      
+      let html = '';
+      
+      // Previous button
+      html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>
+        <span class="material-icons">chevron_left</span>
+      </button>`;
+      
+      // Page numbers
+      for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+          html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        } else if (i === currentPage - 2 || i === currentPage + 2) {
+          html += `<span style="padding: 0 8px; color: var(--text-muted);">...</span>`;
+        }
+      }
+      
+      // Next button
+      html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>
+        <span class="material-icons">chevron_right</span>
+      </button>`;
+      
+      pagination.innerHTML = html;
+    }
+    
+    function goToPage(page) {
+      const totalPages = Math.ceil(filteredAssessments.length / itemsPerPage);
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderAssessments();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
+    function setView(view) {
+      currentView = view;
+      document.querySelectorAll('.view-toggle button').forEach(btn => btn.classList.remove('active'));
+      event.target.closest('button').classList.add('active');
+      renderAssessments();
+    }
+    
+    function viewAssessment(id) {
+      window.location.href = SCRIPT_URL + '?page=analysis&id=' + id;
+    }
+    
+    function deleteAssessment(id, name) {
+      showConfirm(
+        'Delete Assessment?',
+        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+        function() {
+          showLoading('Deleting assessment...');
+          
+          google.script.run
+            .withSuccessHandler(function() {
+              hideLoading();
+              showToast('Assessment deleted', 'success');
+              loadAssessments();
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              showToast('Error: ' + error.message, 'error');
+            })
+            .deleteAssessment(id);
+        }
+      );
+    }
+    
+    function formatDateShort(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      if (diff < 7) return `${diff}d ago`;
+      
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  </script>
+</body>
+</html>

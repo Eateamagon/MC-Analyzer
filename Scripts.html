@@ -1,0 +1,303 @@
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   MASTERY CONNECT ANALYZER - SHARED JAVASCRIPT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// Toast Container
+let toastContainer = null;
+
+function ensureToastContainer() {
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+  }
+  return toastContainer;
+}
+
+/**
+ * Shows a toast notification
+ */
+function showToast(message, type = 'info', duration = 4000) {
+  const container = ensureToastContainer();
+  
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  
+  const icons = {
+    success: 'check_circle',
+    error: 'error',
+    warning: 'warning',
+    info: 'info'
+  };
+  
+  toast.innerHTML = `
+    <span class="material-icons">${icons[type] || 'info'}</span>
+    <span>${message}</span>
+  `;
+  
+  container.appendChild(toast);
+  
+  // Auto remove
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, duration);
+}
+
+/**
+ * Format file size
+ */
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Format date
+ */
+function formatDate(dateStr, format = 'short') {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  
+  if (format === 'short') {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  }
+  
+  if (format === 'long') {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  }
+  
+  if (format === 'time') {
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  }
+  
+  return date.toISOString();
+}
+
+/**
+ * Debounce function
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Show confirmation dialog
+ */
+function showConfirm(title, message, onConfirm, onCancel) {
+  const modal = document.createElement('div');
+  modal.className = 'modal active';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2>${title}</h2>
+      </div>
+      <div class="modal-body">
+        <p>${message}</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn-primary" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  modal.querySelector('#confirmOk').addEventListener('click', () => {
+    modal.remove();
+    if (onConfirm) onConfirm();
+  });
+  
+  modal.querySelector('#confirmCancel').addEventListener('click', () => {
+    modal.remove();
+    if (onCancel) onCancel();
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+      if (onCancel) onCancel();
+    }
+  });
+}
+
+/**
+ * Download blob as file
+ */
+function downloadBlob(base64Data, filename, mimeType) {
+  const byteCharacters = atob(base64Data);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mimeType });
+  
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+/**
+ * Get color based on percentage
+ */
+function getScoreColor(percentage, growth = 50, strength = 75) {
+  if (percentage < growth) return 'var(--color-growth)';
+  if (percentage < strength) return 'var(--color-monitor)';
+  return 'var(--color-strength)';
+}
+
+/**
+ * Get score class based on percentage
+ */
+function getScoreClass(percentage, growth = 50, strength = 75) {
+  if (percentage < growth) return 'text-growth';
+  if (percentage < strength) return 'text-monitor';
+  return 'text-strength';
+}
+
+/**
+ * Parse CSV content
+ */
+function parseCSV(content) {
+  const lines = content.split(/\r?\n/);
+  const result = [];
+  
+  for (let line of lines) {
+    if (!line.trim()) continue;
+    
+    const row = [];
+    let inQuotes = false;
+    let current = '';
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        row.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    row.push(current.trim());
+    result.push(row);
+  }
+  
+  return result;
+}
+
+/**
+ * Loading overlay
+ */
+function showLoading(message = 'Loading...') {
+  let overlay = document.getElementById('loadingOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.innerHTML = `
+      <div class="loading-content">
+        <div class="spinner"></div>
+        <span class="loading-message">${message}</span>
+      </div>
+    `;
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.querySelector('.loading-message').textContent = message;
+    overlay.style.display = 'flex';
+  }
+}
+
+function hideLoading() {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function updateLoadingMessage(message) {
+  const overlay = document.getElementById('loadingOverlay');
+  if (overlay) {
+    overlay.querySelector('.loading-message').textContent = message;
+  }
+}
+
+/**
+ * Add slide out animation
+ */
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+  }
+  
+  #loadingOverlay .loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    color: white;
+  }
+  
+  #loadingOverlay .loading-message {
+    font-size: 16px;
+  }
+`;
+document.head.appendChild(style);
+</script>

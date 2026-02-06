@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📊</span>
+        <span class="logo-text">MC Analyzer</span>
+      </div>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl ?>?page=dashboard" class="nav-item active">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=upload" class="nav-item">
+        <span class="material-icons">cloud_upload</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=history" class="nav-item">
+        <span class="material-icons">history</span>
+        <span>Assessment History</span>
+      </a>
+    </div>
+    
+    <? if (user.role !== 'teacher') { ?>
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl ?>?page=admin" class="nav-item">
+        <span class="material-icons">admin_panel_settings</span>
+        <span>Admin Panel</span>
+      </a>
+      <a href="#" class="nav-item" onclick="showDistrictSummary()">
+        <span class="material-icons">assessment</span>
+        <span>District Summary</span>
+      </a>
+    </div>
+    <? } ?>
+    
+    <div class="nav-section">
+      <div class="nav-label">SETTINGS</div>
+      <a href="#" class="nav-item" onclick="openSettings()">
+        <span class="material-icons">tune</span>
+        <span>Preferences</span>
+      </a>
+    </div>
+    
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user.name || user.email.split('@')[0] ?></div>
+          <div class="user-role"><?= user.role === 'division_admin' ? 'Division Admin' : user.role === 'school_admin' ? 'School Admin' : 'Teacher' ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <h1>Dashboard</h1>
+        <span class="header-subtitle">Welcome back, <?= user.name || user.email.split('@')[0] ?></span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-primary" onclick="navigateTo('upload')">
+          <span class="material-icons">add</span>
+          New Analysis
+        </button>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(0, 161, 75, 0.2); color: #00a14b;">
+            <span class="material-icons">assignment</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value" id="totalAssessments">-</div>
+            <div class="stat-label">Total Assessments</div>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+            <span class="material-icons">people</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value" id="totalStudents">-</div>
+            <div class="stat-label">Students Analyzed</div>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">
+            <span class="material-icons">trending_up</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value" id="avgScore">-</div>
+            <div class="stat-label">Average Score</div>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon" style="background: rgba(139, 92, 246, 0.2); color: #8b5cf6;">
+            <span class="material-icons">schedule</span>
+          </div>
+          <div class="stat-info">
+            <div class="stat-value" id="recentActivity">-</div>
+            <div class="stat-label">Recent Activity</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Assessments -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">history</span>
+            Recent Assessments
+          </h2>
+          <a href="<?= scriptUrl ?>?page=history" class="btn btn-ghost">View All</a>
+        </div>
+        <div class="card-body">
+          <div id="recentAssessments" class="assessment-list">
+            <div class="loading-spinner">
+              <div class="spinner"></div>
+              <span>Loading assessments...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">flash_on</span>
+            Quick Actions
+          </h2>
+        </div>
+        <div class="card-body">
+          <div class="quick-actions">
+            <button class="action-card" onclick="navigateTo('upload')">
+              <span class="material-icons">cloud_upload</span>
+              <span>Upload CSV</span>
+            </button>
+            <button class="action-card" onclick="runQuickAnalysis()">
+              <span class="material-icons">analytics</span>
+              <span>Run Analysis</span>
+            </button>
+            <button class="action-card" onclick="downloadLatest()">
+              <span class="material-icons">download</span>
+              <span>Download Report</span>
+            </button>
+            <button class="action-card" onclick="openSettings()">
+              <span class="material-icons">settings</span>
+              <span>Settings</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" onclick="closeSettings()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Analysis Thresholds</h3>
+          <div class="form-group">
+            <label>Growth Threshold (%)</label>
+            <input type="number" id="settingGrowth" class="form-input" min="0" max="100" value="50">
+            <span class="form-hint">Scores below this are marked as "Needs Growth"</span>
+          </div>
+          <div class="form-group">
+            <label>Strength Threshold (%)</label>
+            <input type="number" id="settingStrength" class="form-input" min="0" max="100" value="75">
+            <span class="form-hint">Scores at or above this are marked as "Strength"</span>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <h3>Small Group Settings</h3>
+          <div class="form-group">
+            <label>Weakness Threshold (%)</label>
+            <input type="number" id="settingSgThreshold" class="form-input" min="0" max="100" value="70">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min Group Size</label>
+              <input type="number" id="settingSgMin" class="form-input" min="1" max="10" value="2">
+            </div>
+            <div class="form-group">
+              <label>Max Group Size</label>
+              <input type="number" id="settingSgMax" class="form-input" min="1" max="20" value="5">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <?!= include('Scripts'); ?>
+  
+  <script>
+    // Base URL for navigation
+    const SCRIPT_URL = '<?= scriptUrl ?>';
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+      loadDashboardData();
+    });
+    
+    function loadDashboardData() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          // Ensure assessments is an array
+          assessments = assessments || [];
+          updateStats(assessments);
+          displayRecentAssessments(assessments);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Error loading assessments:', error);
+          // Show zeros on error
+          updateStats([]);
+          document.getElementById('recentAssessments').innerHTML = 
+            '<div class="empty-state"><span class="material-icons">error</span><p>Error loading data</p></div>';
+        })
+        .getAssessmentList();
+    }
+    
+    function updateStats(assessments) {
+      // Ensure assessments is an array
+      assessments = assessments || [];
+      
+      document.getElementById('totalAssessments').textContent = assessments.length;
+      
+      const totalStudents = assessments.reduce((sum, a) => sum + (parseInt(a.student_count) || 0), 0);
+      document.getElementById('totalStudents').textContent = totalStudents.toLocaleString();
+      
+      // Calculate average (placeholder)
+      document.getElementById('avgScore').textContent = assessments.length > 0 ? '—' : '—';
+      
+      // Recent activity
+      if (assessments.length > 0 && assessments[0].date_uploaded) {
+        const latest = new Date(assessments[0].date_uploaded);
+        const diff = Math.floor((new Date() - latest) / (1000 * 60 * 60 * 24));
+        document.getElementById('recentActivity').textContent = 
+          diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : `${diff} days ago`;
+      } else {
+        document.getElementById('recentActivity').textContent = 'None';
+      }
+    }
+    
+    function displayRecentAssessments(assessments) {
+      const container = document.getElementById('recentAssessments');
+      
+      if (!assessments || assessments.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <span class="material-icons">assignment</span>
+            <p>No assessments yet</p>
+            <a href="${SCRIPT_URL}?page=upload" class="btn btn-primary">Upload Your First Assessment</a>
+          </div>
+        `;
+        return;
+      }
+      
+      const recent = assessments.slice(0, 5);
+      container.innerHTML = recent.map(a => `
+        <div class="assessment-item" onclick="viewAssessment('${a.id}')">
+          <div class="assessment-icon">
+            <span class="material-icons">description</span>
+          </div>
+          <div class="assessment-info">
+            <div class="assessment-name">${a.name || 'Unnamed Assessment'}</div>
+            <div class="assessment-meta">
+              ${a.subject ? `<span class="tag">${a.subject}</span>` : ''}
+              ${a.grade_level ? `<span class="tag">${a.grade_level}</span>` : ''}
+              <span>${a.student_count} students</span>
+              <span>•</span>
+              <span>${formatDate(a.date_uploaded)}</span>
+            </div>
+          </div>
+          <div class="assessment-status ${a.status === 'ready' ? 'status-ready' : 'status-pending'}">
+            ${a.status === 'ready' ? 'Ready' : 'Needs Setup'}
+          </div>
+          <span class="material-icons assessment-arrow">chevron_right</span>
+        </div>
+      `).join('');
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function viewAssessment(id) {
+      window.location.href = SCRIPT_URL + '?page=analysis&id=' + id;
+    }
+    
+    function navigateTo(page) {
+      window.location.href = SCRIPT_URL + '?page=' + page;
+    }
+    
+    function openSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+      
+      // Load current settings
+      const user = <?= JSON.stringify(user) ?>;
+      if (user.settings) {
+        document.getElementById('settingGrowth').value = user.settings.growth || 50;
+        document.getElementById('settingStrength').value = user.settings.strength || 75;
+        document.getElementById('settingSgThreshold').value = user.settings.sgThreshold || 70;
+        document.getElementById('settingSgMin').value = user.settings.sgMin || 2;
+        document.getElementById('settingSgMax').value = user.settings.sgMax || 5;
+      }
+    }
+    
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+    
+    function saveSettings() {
+      const settings = {
+        growth: parseInt(document.getElementById('settingGrowth').value),
+        strength: parseInt(document.getElementById('settingStrength').value),
+        sgThreshold: parseInt(document.getElementById('settingSgThreshold').value),
+        sgMin: parseInt(document.getElementById('settingSgMin').value),
+        sgMax: parseInt(document.getElementById('settingSgMax').value)
+      };
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          showToast('Settings saved successfully!', 'success');
+          closeSettings();
+        })
+        .withFailureHandler(function(error) {
+          showToast('Error saving settings: ' + error.message, 'error');
+        })
+        .updateUserSettings(settings);
+    }
+    
+    function runQuickAnalysis() {
+      showToast('Select an assessment from the list to run analysis', 'info');
+    }
+    
+    function downloadLatest() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          if (assessments && assessments.length > 0) {
+            window.location.href = SCRIPT_URL + '?page=analysis&id=' + assessments[0].id + '&action=download';
+          } else {
+            showToast('No assessments available', 'info');
+          }
+        })
+        .getAssessmentList();
+    }
+    
+    function showDistrictSummary() {
+      showToast('Select an assessment to view district summary', 'info');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    /* Analysis-specific styles */
+    .analysis-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 24px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .tab-btn {
+      padding: 16px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+    
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    
+    .tab-content {
+      display: none;
+      padding: 24px;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Analysis Options Panel */
+    .options-panel {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+    
+    .option-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .option-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .checkbox-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    
+    .checkbox-wrapper input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+    }
+    
+    /* Heatmap Table */
+    .heatmap-container {
+      overflow-x: auto;
+    }
+    
+    .heatmap-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    
+    .heatmap-table th,
+    .heatmap-table td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .heatmap-table th {
+      background: var(--bg-surface);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .heatmap-table th.rotate {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      transform: rotate(180deg);
+      height: 100px;
+      white-space: nowrap;
+    }
+    
+    .heatmap-table .student-name {
+      text-align: left;
+      font-weight: 500;
+      white-space: nowrap;
+      position: sticky;
+      left: 0;
+      background: var(--bg-main);
+      z-index: 5;
+    }
+    
+    .heatmap-cell {
+      min-width: 40px;
+    }
+    
+    .score-1 {
+      background: var(--color-strength);
+      color: transparent;
+    }
+    
+    .score-0 {
+      background: var(--color-growth);
+      color: transparent;
+    }
+    
+    /* Item Analysis Table */
+    .item-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .item-table th,
+    .item-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .item-table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      background: var(--bg-surface);
+    }
+    
+    .item-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+    
+    .review-flag {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-growth);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    
+    .distractor-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    
+    .distractor-item {
+      background: var(--bg-surface-light);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    
+    /* Small Groups */
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    
+    .group-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .group-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    
+    .group-title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .group-period {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .group-period.unknown {
+      color: var(--color-growth);
+    }
+    
+    .group-students {
+      margin-bottom: 12px;
+    }
+    
+    .student-tag {
+      display: inline-block;
+      background: var(--bg-surface-light);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin: 2px;
+    }
+    
+    .group-sols {
+      padding-top: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .sol-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    
+    .sol-tag {
+      display: inline-block;
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-growth);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin: 2px;
+    }
+    
+    /* Teacher Summary */
+    .teacher-summary-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    
+    .teacher-summary-header {
+      padding: 20px 24px;
+      background: var(--bg-surface-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    
+    .teacher-summary-header:hover {
+      background: var(--bg-hover);
+    }
+    
+    .teacher-summary-content {
+      padding: 24px;
+      display: none;
+    }
+    
+    .teacher-summary-content.expanded {
+      display: block;
+    }
+    
+    .sol-category {
+      margin-bottom: 24px;
+    }
+    
+    .sol-category-header {
+      padding: 12px 16px;
+      border-radius: var(--border-radius-sm);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    .sol-category-header.growth {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-growth);
+    }
+    
+    .sol-category-header.monitor {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--color-monitor);
+    }
+    
+    .sol-category-header.strength {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-strength);
+    }
+    
+    /* District Summary */
+    .district-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .district-table th,
+    .district-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .district-table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      background: var(--bg-surface);
+    }
+    
+    .district-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+    
+    .teacher-filter {
+      margin-bottom: 16px;
+    }
+    
+    .teacher-filter select {
+      min-width: 200px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Initial Loading State -->
+  <div id="pageLoading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-primary, #0d1421); display: flex; align-items: center; justify-content: center; z-index: 10000;">
+    <div style="text-align: center; color: white;">
+      <div class="spinner" style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #00a14b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+      <div>Loading Analysis...</div>
+    </div>
+    <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+  </div>
+  <script>
+    // Hide loading after a short delay or when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(function() {
+        var loader = document.getElementById('pageLoading');
+        if (loader) loader.style.display = 'none';
+      }, 100);
+    });
+  </script>
+
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📊</span>
+        <span class="logo-text">MC Analyzer</span>
+      </div>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl || '' ?>?page=dashboard" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl || '' ?>?page=upload" class="nav-item">
+        <span class="material-icons">cloud_upload</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl || '' ?>?page=history" class="nav-item">
+        <span class="material-icons">history</span>
+        <span>Assessment History</span>
+      </a>
+    </div>
+    
+    <? if (user && user.role !== 'teacher') { ?>
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl || '' ?>?page=admin" class="nav-item">
+        <span class="material-icons">admin_panel_settings</span>
+        <span>Admin Panel</span>
+      </a>
+    </div>
+    <? } ?>
+    
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user && user.name ? user.name.charAt(0).toUpperCase() : (user && user.email ? user.email.charAt(0).toUpperCase() : 'U') ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user && user.name ? user.name : (user && user.email ? user.email.split('@')[0] : 'User') ?></div>
+          <div class="user-role"><?= user && user.role === 'division_admin' ? 'Division Admin' : (user && user.role === 'school_admin' ? 'School Admin' : 'Teacher') ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h1 id="assessmentTitle">Assessment Analysis</h1>
+        <span class="header-subtitle" id="assessmentMeta">Loading...</span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-secondary" onclick="downloadExcel()">
+          <span class="material-icons">download</span>
+          Excel
+        </button>
+        <button class="btn btn-secondary" onclick="downloadPDF()">
+          <span class="material-icons">picture_as_pdf</span>
+          PDF
+        </button>
+        <? if (user && user.role !== 'teacher') { ?>
+        <button class="btn btn-primary" onclick="createTeacherFiles()">
+          <span class="material-icons">folder</span>
+          Create Teacher Files
+        </button>
+        <? } ?>
+      </div>
+    </header>
+
+    <!-- Analysis Options -->
+    <div class="options-panel">
+      <div class="option-group">
+        <span class="option-label">Include:</span>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optItemAnalysis" checked>
+          <span>Item Analysis</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optSmallGroups" checked>
+          <span>Small Groups</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optHeatmaps" checked>
+          <span>Heatmaps</span>
+        </label>
+      </div>
+      <div class="option-group">
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optSendEmail">
+          <span>Email Results</span>
+        </label>
+      </div>
+      <button class="btn btn-primary" onclick="runAnalysis()">
+        <span class="material-icons">play_arrow</span>
+        Run Analysis
+      </button>
+    </div>
+
+    <!-- No Results Message -->
+    <div id="noResultsMessage" class="empty-state" style="display: none; padding: 60px 20px;">
+      <span class="material-icons" style="font-size: 64px; color: var(--primary); margin-bottom: 16px;">analytics</span>
+      <h3 style="margin-bottom: 8px;">Ready to Analyze</h3>
+      <p style="color: var(--text-muted); margin-bottom: 24px;">Click "Run Analysis" to generate insights from this assessment data.</p>
+    </div>
+
+    <!-- Analysis Tabs -->
+    <div class="analysis-tabs">
+      <button class="tab-btn active" onclick="showTab('summary')">
+        <span class="material-icons">summarize</span>
+        Summary
+      </button>
+      <button class="tab-btn" onclick="showTab('items')">
+        <span class="material-icons">quiz</span>
+        Item Analysis
+      </button>
+      <button class="tab-btn" onclick="showTab('groups')">
+        <span class="material-icons">groups</span>
+        Small Groups
+      </button>
+      <button class="tab-btn" onclick="showTab('heatmap')">
+        <span class="material-icons">grid_view</span>
+        Heatmaps
+      </button>
+      <? if (user && user.role !== 'teacher') { ?>
+      <button class="tab-btn" onclick="showTab('district')">
+        <span class="material-icons">business</span>
+        District Summary
+      </button>
+      <? } ?>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="tab-content active" id="summaryTab">
+      <div class="teacher-filter">
+        <select id="teacherFilter" class="form-input" onchange="filterByTeacher()">
+          <option value="">All Teachers</option>
+        </select>
+      </div>
+      <div id="teacherSummaries">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <span>Run analysis to see results...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="itemsTab">
+      <div class="teacher-filter">
+        <select id="itemTeacherFilter" class="form-input" onchange="filterItemsByTeacher()">
+          <option value="">Select Teacher</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div id="itemAnalysisContent">
+            <div class="empty-state">
+              <span class="material-icons">quiz</span>
+              <p>Select a teacher to view item analysis</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="groupsTab">
+      <div class="teacher-filter">
+        <select id="groupTeacherFilter" class="form-input" onchange="filterGroupsByTeacher()">
+          <option value="">All Teachers</option>
+        </select>
+      </div>
+      <div id="smallGroupsContent" class="groups-grid">
+        <div class="empty-state">
+          <span class="material-icons">groups</span>
+          <p>Run analysis to see small groups</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="heatmapTab">
+      <div class="flex gap-2 mb-2">
+        <button class="btn btn-secondary" onclick="showHeatmap('student')">Student Heatmap</button>
+        <button class="btn btn-secondary" onclick="showHeatmap('sol')">SOL Heatmap</button>
+      </div>
+      <div class="card">
+        <div class="card-body heatmap-container">
+          <div id="heatmapContent">
+            <div class="empty-state">
+              <span class="material-icons">grid_view</span>
+              <p>Run analysis to see heatmaps</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <? if (user && user.role !== 'teacher') { ?>
+    <div class="tab-content" id="districtTab">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">business</span>
+            District Summary
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="districtSummaryContent">
+            <div class="empty-state">
+              <span class="material-icons">assessment</span>
+              <p>Run analysis to see district summary</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <? } ?>
+  </main>
+
+  <?!= include('Scripts'); ?>
+  
+  <script>
+    // Simple variable declarations - no complex template expressions
+    var SCRIPT_URL = '<?= scriptUrl ?>';
+    var ASSESSMENT_ID = '<?= assessmentId ?>';
+    var USER_ROLE = '<?= user.role ?>';
+    
+    var currentAssessmentId = ASSESSMENT_ID || null;
+    var analysisResults = null;
+    var userRole = USER_ROLE || 'teacher';
+    
+    console.log('Analysis page loaded');
+    console.log('SCRIPT_URL:', SCRIPT_URL);
+    console.log('ASSESSMENT_ID:', ASSESSMENT_ID);
+    console.log('USER_ROLE:', USER_ROLE);
+    
+    // Initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM ready, assessment ID:', currentAssessmentId);
+      
+      // Hide initial loading
+      var loader = document.getElementById('pageLoading');
+      if (loader) loader.style.display = 'none';
+      
+      if (currentAssessmentId) {
+        loadAssessment();
+      } else {
+        showToast('No assessment selected', 'error');
+        setTimeout(function() {
+          window.location.href = SCRIPT_URL + '?page=dashboard';
+        }, 2000);
+      }
+    });
+    
+    function loadAssessment() {
+      showLoading('Loading assessment...');
+      
+      console.log('Calling getAssessmentData for:', currentAssessmentId);
+      
+      google.script.run
+        .withSuccessHandler(function(data) {
+          hideLoading();
+          console.log('Assessment data received:', data);
+          
+          if (!data || !data.assessment) {
+            showToast('Assessment data not found', 'error');
+            setTimeout(() => {
+              window.location.href = SCRIPT_URL + '?page=dashboard';
+            }, 2000);
+            return;
+          }
+          
+          document.getElementById('assessmentTitle').textContent = data.assessment.name || 'Assessment Analysis';
+          document.getElementById('assessmentMeta').textContent = 
+            `${data.assessment.student_count || 0} students • ${data.assessment.question_count || 0} questions • ${formatDate(data.assessment.date_uploaded)}`;
+          
+          // Store assessment data for analysis
+          window.assessmentData = data;
+          
+          // Check if there are existing results
+          loadExistingResults();
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          console.error('Error loading assessment:', error);
+          showToast('Error loading assessment: ' + error.message, 'error');
+          
+          // Redirect to dashboard after error
+          setTimeout(() => {
+            window.location.href = SCRIPT_URL + '?page=dashboard';
+          }, 3000);
+        })
+        .getAssessmentData(currentAssessmentId);
+    }
+    
+    function loadExistingResults() {
+      google.script.run
+        .withSuccessHandler(function(results) {
+          console.log('Existing results:', results);
+          if (results && Object.keys(results).length > 0) {
+            analysisResults = results;
+            displayResults();
+          } else {
+            // No existing results - show ready to analyze message
+            document.getElementById('noResultsMessage').style.display = 'flex';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.log('No existing results or error:', error);
+          document.getElementById('noResultsMessage').style.display = 'flex';
+        })
+        .getAnalysisResults(currentAssessmentId);
+    }
+    
+    function runAnalysis() {
+      // Check for existing analysis
+      google.script.run
+        .withSuccessHandler(function(check) {
+          if (check.exists) {
+            showConfirm(
+              'Re-run Analysis?',
+              `Analysis was last run on ${formatDate(check.timestamp)}. Do you want to overwrite or create a new version?`,
+              function() {
+                // Overwrite
+                executeAnalysis(true);
+              },
+              function() {
+                // Cancel - do nothing
+              }
+            );
+          } else {
+            executeAnalysis(false);
+          }
+        })
+        .checkExistingAnalysis(currentAssessmentId);
+    }
+    
+    function executeAnalysis(overwrite) {
+      const options = {
+        itemAnalysis: document.getElementById('optItemAnalysis').checked,
+        smallGroups: document.getElementById('optSmallGroups').checked,
+        heatmaps: document.getElementById('optHeatmaps').checked,
+        sendEmail: document.getElementById('optSendEmail').checked
+      };
+      
+      showLoading('Running analysis...');
+      
+      if (overwrite) {
+        google.script.run
+          .withSuccessHandler(function() {
+            performAnalysis(options);
+          })
+          .deleteExistingAnalysis(currentAssessmentId);
+      } else {
+        performAnalysis(options);
+      }
+    }
+    
+    function performAnalysis(options) {
+      google.script.run
+        .withSuccessHandler(function(results) {
+          hideLoading();
+          analysisResults = results;
+          displayResults();
+          showToast('Analysis complete!', 'success');
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Analysis failed: ' + error.message, 'error');
+        })
+        .runAnalysis(currentAssessmentId, options);
+    }
+    
+    function displayResults() {
+      if (!analysisResults) return;
+      
+      // Populate teacher filters
+      populateTeacherFilters();
+      
+      // Display teacher summaries
+      displayTeacherSummaries();
+      
+      // Display small groups
+      displaySmallGroups();
+      
+      // Display district summary
+      if (userRole !== 'teacher' && analysisResults.districtSummary) {
+        displayDistrictSummary();
+      }
+    }
+    
+    function populateTeacherFilters() {
+      if (!analysisResults.teacherSummaries) return;
+      
+      const teachers = analysisResults.teacherSummaries.map(ts => ts.teacher);
+      
+      ['teacherFilter', 'itemTeacherFilter', 'groupTeacherFilter'].forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+        
+        const firstOption = select.options[0].outerHTML;
+        select.innerHTML = firstOption;
+        
+        teachers.forEach(t => {
+          const option = document.createElement('option');
+          option.value = t;
+          option.textContent = t;
+          select.appendChild(option);
+        });
+      });
+    }
+    
+    function displayTeacherSummaries() {
+      const container = document.getElementById('teacherSummaries');
+      if (!analysisResults.teacherSummaries) {
+        container.innerHTML = '<div class="empty-state"><p>No teacher summaries available</p></div>';
+        return;
+      }
+      
+      let html = '';
+      analysisResults.teacherSummaries.forEach(ts => {
+        html += `
+          <div class="teacher-summary-card" data-teacher="${ts.teacher}">
+            <div class="teacher-summary-header" onclick="toggleSummary(this)">
+              <div>
+                <strong>${ts.teacher}</strong>
+                <span style="color: var(--text-muted); margin-left: 12px;">${ts.studentCount} students</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="stat-badge ${getScoreClass(ts.average)}">${ts.average}% avg</span>
+                <span class="material-icons">expand_more</span>
+              </div>
+            </div>
+            <div class="teacher-summary-content">
+              ${renderSOLCategories(ts)}
+            </div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    function renderSOLCategories(ts) {
+      let html = '';
+      
+      // Growth
+      if (ts.growthSOLs && ts.growthSOLs.length > 0) {
+        html += `
+          <div class="sol-category">
+            <div class="sol-category-header growth">Areas of Growth (&lt;${analysisResults.settings?.growth || 50}%)</div>
+            <table class="item-table">
+              <thead>
+                <tr>
+                  <th>SOL</th>
+                  <th>Correct</th>
+                  <th>Total</th>
+                  <th>%</th>
+                  <th>🔴</th>
+                  <th>🟡</th>
+                  <th>🟢</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ts.growthSOLs.map(sol => `
+                  <tr>
+                    <td>${sol.sol}</td>
+                    <td>${sol.correct}</td>
+                    <td>${sol.total}</td>
+                    <td class="text-growth">${sol.percentage}%</td>
+                    <td>${sol.redCount}</td>
+                    <td>${sol.yellowCount}</td>
+                    <td>${sol.greenCount}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+      
+      // Monitor
+      if (ts.monitorSOLs && ts.monitorSOLs.length > 0) {
+        html += `
+          <div class="sol-category">
+            <div class="sol-category-header monitor">Areas to Monitor (${analysisResults.settings?.growth || 50}% - ${analysisResults.settings?.strength || 75}%)</div>
+            <table class="item-table">
+              <thead>
+                <tr>
+                  <th>SOL</th>
+                  <th>Correct</th>
+                  <th>Total</th>
+                  <th>%</th>
+                  <th>🔴</th>
+                  <th>🟡</th>
+                  <th>🟢</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ts.monitorSOLs.map(sol => `
+                  <tr>
+                    <td>${sol.sol}</td>
+                    <td>${sol.correct}</td>
+                    <td>${sol.total}</td>
+                    <td class="text-monitor">${sol.percentage}%</td>
+                    <td>${sol.redCount}</td>
+                    <td>${sol.yellowCount}</td>
+                    <td>${sol.greenCount}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+      
+      // Strength
+      if (ts.strengthSOLs && ts.strengthSOLs.length > 0) {
+        html += `
+          <div class="sol-category">
+            <div class="sol-category-header strength">Areas of Strength (≥${analysisResults.settings?.strength || 75}%)</div>
+            <table class="item-table">
+              <thead>
+                <tr>
+                  <th>SOL</th>
+                  <th>Correct</th>
+                  <th>Total</th>
+                  <th>%</th>
+                  <th>🔴</th>
+                  <th>🟡</th>
+                  <th>🟢</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ts.strengthSOLs.map(sol => `
+                  <tr>
+                    <td>${sol.sol}</td>
+                    <td>${sol.correct}</td>
+                    <td>${sol.total}</td>
+                    <td class="text-strength">${sol.percentage}%</td>
+                    <td>${sol.redCount}</td>
+                    <td>${sol.yellowCount}</td>
+                    <td>${sol.greenCount}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+      
+      return html || '<p style="color: var(--text-muted);">No SOL data available</p>';
+    }
+    
+    function displaySmallGroups() {
+      const container = document.getElementById('smallGroupsContent');
+      if (!analysisResults.smallGroups || analysisResults.smallGroups.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No small groups generated</p></div>';
+        return;
+      }
+      
+      container.innerHTML = analysisResults.smallGroups.map(group => `
+        <div class="group-card" data-teacher="${group.teacher}">
+          <div class="group-header">
+            <div class="group-title">
+              <span class="material-icons" style="color: var(--primary);">groups</span>
+              ${group.teacher} - Group ${group.groupNumber}
+            </div>
+            <span class="group-period ${group.isUnknownPeriod ? 'unknown' : ''}">${group.period}</span>
+          </div>
+          <div class="group-students">
+            ${group.students.map(s => `<span class="student-tag">${s}</span>`).join('')}
+          </div>
+          <div class="group-sols">
+            <div class="sol-label">Focus SOLs:</div>
+            ${group.sharedWeakSOLs.map(sol => `<span class="sol-tag">${sol}</span>`).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function displayDistrictSummary() {
+      const container = document.getElementById('districtSummaryContent');
+      if (!analysisResults.districtSummary) {
+        container.innerHTML = '<div class="empty-state"><p>No district summary available</p></div>';
+        return;
+      }
+      
+      const summary = analysisResults.districtSummary;
+      
+      container.innerHTML = `
+        <div class="stats-grid mb-3">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(0, 161, 75, 0.2); color: #00a14b;">
+              <span class="material-icons">people</span>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">${summary.totalStudents}</div>
+              <div class="stat-label">Total Students</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+              <span class="material-icons">school</span>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">${summary.teacherCount}</div>
+              <div class="stat-label">Teachers</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b;">
+              <span class="material-icons">trending_up</span>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">${summary.overallAverage}%</div>
+              <div class="stat-label">Overall Average</div>
+            </div>
+          </div>
+        </div>
+        
+        <table class="district-table">
+          <thead>
+            <tr>
+              <th>Teacher</th>
+              <th>Students</th>
+              <th>Average</th>
+              <th>Strongest SOL</th>
+              <th>Weakest SOL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summary.teachers.map(t => `
+              <tr>
+                <td><strong>${t.teacher}</strong></td>
+                <td>${t.studentCount}</td>
+                <td class="${getScoreClass(t.average)}">${t.average}%</td>
+                <td class="text-strength">${t.bestSOL}</td>
+                <td class="text-growth">${t.worstSOL}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function showTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.closest('.tab-btn').classList.add('active');
+      
+      // Show tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabName + 'Tab').classList.add('active');
+    }
+    
+    function toggleSummary(header) {
+      const content = header.nextElementSibling;
+      const icon = header.querySelector('.material-icons');
+      
+      content.classList.toggle('expanded');
+      icon.textContent = content.classList.contains('expanded') ? 'expand_less' : 'expand_more';
+    }
+    
+    function filterByTeacher() {
+      const filter = document.getElementById('teacherFilter').value;
+      document.querySelectorAll('.teacher-summary-card').forEach(card => {
+        card.style.display = !filter || card.dataset.teacher === filter ? 'block' : 'none';
+      });
+    }
+    
+    function filterItemsByTeacher() {
+      const teacher = document.getElementById('itemTeacherFilter').value;
+      const container = document.getElementById('itemAnalysisContent');
+      
+      if (!teacher || !analysisResults.itemAnalysis || !analysisResults.itemAnalysis[teacher]) {
+        container.innerHTML = '<div class="empty-state"><p>Select a teacher to view item analysis</p></div>';
+        return;
+      }
+      
+      const items = analysisResults.itemAnalysis[teacher];
+      
+      container.innerHTML = `
+        <table class="item-table">
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>SOL</th>
+              <th>Correct Answer</th>
+              <th>% Correct</th>
+              <th>Top Wrong</th>
+              <th>Count</th>
+              <th>All Distractors</th>
+              <th>Alert</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => `
+              <tr>
+                <td><strong>${item.question}</strong></td>
+                <td>${item.sol}</td>
+                <td>${item.correctAnswer}</td>
+                <td class="${getScoreClass(item.pctCorrect)}">${item.pctCorrect}%</td>
+                <td>${item.topWrongAnswer}</td>
+                <td>${item.topWrongCount || '-'}</td>
+                <td>
+                  <div class="distractor-list">
+                    ${item.allDistractors.map(d => `<span class="distractor-item">${d.answer}: ${d.count}</span>`).join('')}
+                  </div>
+                </td>
+                <td>${item.reviewFlag ? '<span class="review-flag">⚠️ Review</span>' : ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+    
+    function filterGroupsByTeacher() {
+      const filter = document.getElementById('groupTeacherFilter').value;
+      document.querySelectorAll('.group-card').forEach(card => {
+        card.style.display = !filter || card.dataset.teacher === filter ? 'block' : 'none';
+      });
+    }
+    
+    function showHeatmap(type) {
+      const container = document.getElementById('heatmapContent');
+      
+      if (!analysisResults.heatmaps) {
+        container.innerHTML = '<div class="empty-state"><p>Run analysis to see heatmaps</p></div>';
+        return;
+      }
+      
+      if (type === 'student' && analysisResults.heatmaps.studentHeatmap) {
+        renderStudentHeatmap(container, analysisResults.heatmaps.studentHeatmap);
+      } else if (type === 'sol' && analysisResults.heatmaps.solHeatmap) {
+        renderSOLHeatmap(container, analysisResults.heatmaps.solHeatmap);
+      }
+    }
+    
+    function renderStudentHeatmap(container, data) {
+      let html = '<table class="heatmap-table"><thead><tr>';
+      html += '<th class="student-name">Teacher</th>';
+      html += '<th class="student-name">Student</th>';
+      html += '<th>Score</th>';
+      
+      // Question headers
+      data.headers.slice(3).forEach(h => {
+        html += `<th class="rotate">${h}</th>`;
+      });
+      
+      html += '</tr></thead><tbody>';
+      
+      data.rows.forEach(row => {
+        html += '<tr>';
+        html += `<td class="student-name">${row.teacher}</td>`;
+        html += `<td class="student-name">${row.student}</td>`;
+        html += `<td class="${getScoreClass(row.scorePct)}">${row.scorePct}%</td>`;
+        
+        row.questionScores.forEach(score => {
+          if (score === 1) {
+            html += '<td class="heatmap-cell score-1">1</td>';
+          } else if (score === 0) {
+            html += '<td class="heatmap-cell score-0">0</td>';
+          } else {
+            html += '<td class="heatmap-cell">-</td>';
+          }
+        });
+        
+        html += '</tr>';
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+    
+    function renderSOLHeatmap(container, data) {
+      let html = '<table class="heatmap-table"><thead><tr>';
+      html += '<th class="student-name">Teacher</th>';
+      
+      data.headers.slice(1).forEach(h => {
+        html += `<th class="rotate">${h}</th>`;
+      });
+      
+      html += '</tr></thead><tbody>';
+      
+      data.rows.forEach(row => {
+        html += '<tr>';
+        html += `<td class="student-name">${row.teacher}</td>`;
+        
+        row.solPercentages.forEach(pct => {
+          if (pct !== null) {
+            html += `<td class="heatmap-cell" style="background: ${getScoreColor(pct)}; color: white;">${pct}%</td>`;
+          } else {
+            html += '<td class="heatmap-cell">-</td>';
+          }
+        });
+        
+        html += '</tr>';
+      });
+      
+      // Averages row
+      html += '<tr style="font-weight: bold; background: var(--bg-surface);">';
+      html += '<td class="student-name">AVERAGE</td>';
+      data.averages.forEach(avg => {
+        if (avg !== null) {
+          html += `<td class="heatmap-cell" style="background: ${getScoreColor(avg)}; color: white;">${avg}%</td>`;
+        } else {
+          html += '<td class="heatmap-cell">-</td>';
+        }
+      });
+      html += '</tr>';
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+    
+    function downloadExcel() {
+      showLoading('Generating Excel file...');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            downloadBlob(result.data, result.filename, result.mimeType);
+            showToast('Download started!', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Download failed: ' + error.message, 'error');
+        })
+        .generateExcelDownload(currentAssessmentId, {});
+    }
+    
+    function downloadPDF() {
+      showLoading('Generating PDF file...');
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          if (result.success) {
+            downloadBlob(result.data, result.filename, result.mimeType);
+            showToast('Download started!', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Download failed: ' + error.message, 'error');
+        })
+        .generatePDFReport(currentAssessmentId, {});
+    }
+    
+    function createTeacherFiles() {
+      showConfirm(
+        'Create Teacher Files?',
+        'This will create individual Google Sheet files for each teacher and organize them in Drive folders. Continue?',
+        function() {
+          showLoading('Creating teacher files...');
+          
+          google.script.run
+            .withSuccessHandler(function(files) {
+              hideLoading();
+              
+              const successful = files.filter(f => f.success);
+              const failed = files.filter(f => !f.success);
+              
+              if (successful.length > 0) {
+                showToast(`Created ${successful.length} teacher files!`, 'success');
+              }
+              if (failed.length > 0) {
+                showToast(`${failed.length} files failed to create`, 'warning');
+              }
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              showToast('Error creating files: ' + error.message, 'error');
+            })
+            .createAllTeacherFiles(currentAssessmentId);
+        }
+      );
+    }
+  </script>
+</body>
+</html>

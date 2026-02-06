@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #00a14b;
+      --primary-dark: #008f42;
+      --primary-glow: rgba(0, 161, 75, 0.4);
+      --bg-dark: #0a0a12;
+      --bg-main: #12121f;
+      --bg-surface: #1a1a2e;
+      --bg-surface-light: #242442;
+      --text-primary: #ffffff;
+      --text-secondary: #a0aec0;
+      --text-muted: #64748b;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    /* Animated background */
+    .bg-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.4;
+      background: 
+        radial-gradient(circle at 20% 80%, rgba(0, 161, 75, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(0, 161, 75, 0.1) 0%, transparent 40%),
+        radial-gradient(circle at 40% 40%, rgba(0, 80, 40, 0.1) 0%, transparent 30%);
+    }
+    
+    .grid-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(0, 161, 75, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 161, 75, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      z-index: 1;
+    }
+    
+    .login-container {
+      position: relative;
+      z-index: 10;
+      width: 100%;
+      max-width: 440px;
+      padding: 20px;
+    }
+    
+    .login-card {
+      background: var(--bg-surface);
+      border-radius: 24px;
+      padding: 48px 40px;
+      box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.5),
+        0 0 100px rgba(0, 161, 75, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      animation: slideUp 0.6s ease;
+    }
+    
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .logo-section {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .logo-icon {
+      width: 80px;
+      height: 80px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 40px;
+      box-shadow: 0 10px 40px var(--primary-glow);
+      animation: pulse 3s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 10px 40px var(--primary-glow);
+      }
+      50% {
+        box-shadow: 0 10px 60px rgba(0, 161, 75, 0.6);
+      }
+    }
+    
+    .logo-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    
+    .logo-title span {
+      color: var(--primary);
+    }
+    
+    .logo-subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 14px 18px;
+      background: var(--bg-surface-light);
+      border: 2px solid transparent;
+      border-radius: 12px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      transition: all 0.25s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--primary-glow);
+    }
+    
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    select.form-input {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 18px;
+      padding-right: 44px;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: white;
+      box-shadow: 0 8px 30px var(--primary-glow);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px var(--primary-glow);
+    }
+    
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    
+    .btn .material-icons {
+      font-size: 20px;
+    }
+    
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 28px 0;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .divider span {
+      padding: 0 16px;
+    }
+    
+    .info-box {
+      background: rgba(0, 161, 75, 0.1);
+      border: 1px solid rgba(0, 161, 75, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    
+    .info-box .material-icons {
+      color: var(--primary);
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    
+    .footer-text {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .loading {
+      display: none;
+    }
+    
+    .loading.active {
+      display: flex;
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      background: rgba(220, 38, 38, 0.15);
+      border: 1px solid rgba(220, 38, 38, 0.3);
+      color: #ef4444;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+    
+    .error-message.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+  <div class="grid-overlay"></div>
+  
+  <div class="login-container">
+    <div class="login-card">
+      <div class="logo-section">
+        <div class="logo-icon">📊</div>
+        <h1 class="logo-title">Mastery<span>Connect</span> Analyzer</h1>
+        <p class="logo-subtitle">Waynesboro Public Schools</p>
+      </div>
+      
+      <div id="errorMessage" class="error-message"></div>
+      
+      <form id="registrationForm">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" id="userName" class="form-input" placeholder="Enter your full name" required>
+        </div>
+        
+        <div class="form-group">
+          <label>School</label>
+          <select id="userSchool" class="form-input" required>
+            <option value="">Select your school...</option>
+            <option value="Berkeley Glenn Elementary School">Berkeley Glenn Elementary</option>
+            <option value="Wenonah Elementary School">Wenonah Elementary</option>
+            <option value="Westwood Hills Elementary School">Westwood Hills Elementary</option>
+            <option value="William Perry Elementary School">William Perry Elementary</option>
+            <option value="Kate Collins Middle School">Kate Collins Middle</option>
+            <option value="Waynesboro High School">Waynesboro High School</option>
+          </select>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <span class="btn-text">Get Started</span>
+          <span class="material-icons btn-icon">arrow_forward</span>
+          <span class="loading">
+            <span class="spinner"></span>
+          </span>
+        </button>
+      </form>
+      
+      <div class="divider"><span>SECURE ACCESS</span></div>
+      
+      <div class="info-box">
+        <span class="material-icons">verified_user</span>
+        Sign in with your <strong>@waynesboro.k12.va.us</strong> Google account. Your role will be automatically assigned based on your email.
+      </div>
+      
+      <p class="footer-text">
+        By continuing, you agree to the division's data usage policies.
+      </p>
+    </div>
+  </div>
+  
+  <script>
+    document.getElementById('registrationForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const name = document.getElementById('userName').value.trim();
+      const school = document.getElementById('userSchool').value;
+      const submitBtn = document.getElementById('submitBtn');
+      const errorMsg = document.getElementById('errorMessage');
+      
+      if (!name || !school) {
+        errorMsg.textContent = 'Please fill in all fields.';
+        errorMsg.classList.add('active');
+        return;
+      }
+      
+      // Show loading state
+      submitBtn.querySelector('.btn-text').style.display = 'none';
+      submitBtn.querySelector('.btn-icon').style.display = 'none';
+      submitBtn.querySelector('.loading').classList.add('active');
+      submitBtn.disabled = true;
+      errorMsg.classList.remove('active');
+      
+      google.script.run
+        .withSuccessHandler(function(user) {
+          // Redirect to dashboard
+          window.top.location.reload();
+        })
+        .withFailureHandler(function(error) {
+          errorMsg.textContent = error.message || 'Registration failed. Please try again.';
+          errorMsg.classList.add('active');
+          
+          // Reset button
+          submitBtn.querySelector('.btn-text').style.display = 'inline';
+          submitBtn.querySelector('.btn-icon').style.display = 'inline';
+          submitBtn.querySelector('.loading').classList.remove('active');
+          submitBtn.disabled = false;
+        })
+        .registerUser(name, school);
+    });
+  </script>
+</body>
+</html>

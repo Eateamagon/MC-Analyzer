@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <?!= include('Styles'); ?>
+  <style>
+    .admin-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      background: var(--bg-surface);
+      padding: 8px;
+      border-radius: var(--border-radius);
+    }
+    
+    .admin-tab {
+      flex: 1;
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      border-radius: var(--border-radius-sm);
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .admin-tab:hover {
+      color: var(--text-primary);
+      background: var(--bg-hover);
+    }
+    
+    .admin-tab.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .admin-content {
+      display: none;
+    }
+    
+    .admin-content.active {
+      display: block;
+    }
+    
+    .users-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .users-table th,
+    .users-table td {
+      padding: 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    
+    .users-table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      background: var(--bg-surface);
+    }
+    
+    .users-table tbody tr:hover {
+      background: var(--bg-hover);
+    }
+    
+    .user-avatar-sm {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    
+    .role-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .role-division {
+      background: rgba(139, 92, 246, 0.15);
+      color: #8b5cf6;
+    }
+    
+    .role-school {
+      background: rgba(59, 130, 246, 0.15);
+      color: #3b82f6;
+    }
+    
+    .role-teacher {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-strength);
+    }
+    
+    .settings-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    
+    .settings-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .settings-header .material-icons {
+      color: var(--primary);
+    }
+    
+    .settings-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .settings-body {
+      padding: 24px;
+    }
+    
+    .admin-list {
+      margin-top: 16px;
+    }
+    
+    .admin-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-surface-light);
+      border-radius: var(--border-radius-sm);
+      margin-bottom: 8px;
+    }
+    
+    .admin-item-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .admin-item-email {
+      font-weight: 500;
+    }
+    
+    .admin-item-type {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .add-admin-form {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+    
+    .add-admin-form input {
+      flex: 1;
+    }
+    
+    .add-admin-form select {
+      width: 180px;
+    }
+    
+    .stats-overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .overview-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      padding: 24px;
+      text-align: center;
+    }
+    
+    .overview-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+    }
+    
+    .overview-value {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    
+    .overview-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    
+    .school-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    
+    .school-stat-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      border-left: 4px solid var(--primary);
+    }
+    
+    .school-name {
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    
+    .school-metrics {
+      display: flex;
+      gap: 24px;
+    }
+    
+    .school-metric {
+      text-align: center;
+    }
+    
+    .school-metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    
+    .school-metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    
+    .action-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">📊</span>
+        <span class="logo-text">MC Analyzer</span>
+      </div>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">MAIN</div>
+      <a href="<?= scriptUrl ?>?page=dashboard" class="nav-item">
+        <span class="material-icons">dashboard</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=upload" class="nav-item">
+        <span class="material-icons">cloud_upload</span>
+        <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl ?>?page=history" class="nav-item">
+        <span class="material-icons">history</span>
+        <span>Assessment History</span>
+      </a>
+    </div>
+    
+    <div class="nav-section">
+      <div class="nav-label">ADMIN</div>
+      <a href="<?= scriptUrl ?>?page=admin" class="nav-item active">
+        <span class="material-icons">admin_panel_settings</span>
+        <span>Admin Panel</span>
+      </a>
+    </div>
+    
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
+        <div class="user-details">
+          <div class="user-name"><?= user.name || user.email.split('@')[0] ?></div>
+          <div class="user-role"><?= user.role === 'division_admin' ? 'Division Admin' : 'School Admin' ?></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="header-left">
+        <h1>Admin Panel</h1>
+        <span class="header-subtitle">Manage users, settings, and view division-wide data</span>
+      </div>
+    </header>
+
+    <div class="dashboard-content">
+      <!-- Admin Tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="showAdminTab('overview')">
+          <span class="material-icons">insights</span>
+          Overview
+        </button>
+        <button class="admin-tab" onclick="showAdminTab('users')">
+          <span class="material-icons">people</span>
+          Users
+        </button>
+        <? if (user.role === 'division_admin') { ?>
+        <button class="admin-tab" onclick="showAdminTab('admins')">
+          <span class="material-icons">admin_panel_settings</span>
+          Admin List
+        </button>
+        <? } ?>
+        <button class="admin-tab" onclick="showAdminTab('settings')">
+          <span class="material-icons">settings</span>
+          Settings
+        </button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div class="admin-content active" id="overviewContent">
+        <div class="stats-overview">
+          <div class="overview-card">
+            <div class="overview-icon" style="background: rgba(0, 161, 75, 0.15);">
+              <span class="material-icons" style="color: var(--primary);">assessment</span>
+            </div>
+            <div class="overview-value" id="totalAssessmentsOverview">-</div>
+            <div class="overview-label">Total Assessments</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon" style="background: rgba(59, 130, 246, 0.15);">
+              <span class="material-icons" style="color: #3b82f6;">people</span>
+            </div>
+            <div class="overview-value" id="totalStudentsOverview">-</div>
+            <div class="overview-label">Students Analyzed</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon" style="background: rgba(139, 92, 246, 0.15);">
+              <span class="material-icons" style="color: #8b5cf6;">school</span>
+            </div>
+            <div class="overview-value" id="totalTeachersOverview">-</div>
+            <div class="overview-label">Active Teachers</div>
+          </div>
+          <div class="overview-card">
+            <div class="overview-icon" style="background: rgba(245, 158, 11, 0.15);">
+              <span class="material-icons" style="color: var(--color-monitor);">trending_up</span>
+            </div>
+            <div class="overview-value" id="avgScoreOverview">-</div>
+            <div class="overview-label">Division Average</div>
+          </div>
+        </div>
+        
+        <h3 class="mb-2">School Statistics</h3>
+        <div id="schoolStats" class="school-stats">
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <span>Loading statistics...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Tab -->
+      <div class="admin-content" id="usersContent">
+        <div class="action-bar">
+          <div class="search-input" style="flex: 1;">
+            <span class="material-icons" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">search</span>
+            <input type="text" id="userSearch" class="form-input" style="padding-left: 44px;" placeholder="Search users..." oninput="filterUsers()">
+          </div>
+          <select id="roleFilter" class="form-input" style="width: 150px;" onchange="filterUsers()">
+            <option value="">All Roles</option>
+            <option value="division_admin">Division Admin</option>
+            <option value="school_admin">School Admin</option>
+            <option value="teacher">Teacher</option>
+          </select>
+        </div>
+        
+        <div class="card">
+          <div class="card-body" style="padding: 0;">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>School</th>
+                  <th>Joined</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin List Tab (Division Admin Only) -->
+      <? if (user.role === 'division_admin') { ?>
+      <div class="admin-content" id="adminsContent">
+        <div class="settings-card">
+          <div class="settings-header">
+            <span class="material-icons">shield</span>
+            <h3>Division Administrators</h3>
+          </div>
+          <div class="settings-body">
+            <p style="color: var(--text-muted); margin-bottom: 16px;">
+              Division administrators have full access to all schools and data.
+            </p>
+            <div id="divisionAdminList" class="admin-list">
+              <!-- Populated dynamically -->
+            </div>
+            <div class="add-admin-form">
+              <input type="email" id="newDivisionAdmin" class="form-input" placeholder="email@waynesboro.k12.va.us">
+              <button class="btn btn-primary" onclick="addAdmin('division_admin')">
+                <span class="material-icons">add</span>
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="settings-card">
+          <div class="settings-header">
+            <span class="material-icons">business</span>
+            <h3>School Administrators</h3>
+          </div>
+          <div class="settings-body">
+            <p style="color: var(--text-muted); margin-bottom: 16px;">
+              School administrators have access to their assigned school's data.
+            </p>
+            <div id="schoolAdminList" class="admin-list">
+              <!-- Populated dynamically -->
+            </div>
+            <div class="add-admin-form">
+              <input type="email" id="newSchoolAdmin" class="form-input" placeholder="email@waynesboro.k12.va.us">
+              <select id="newSchoolAdminSchool" class="form-input">
+                <option value="">Select School</option>
+                <? config.schools.forEach(function(school) { ?>
+                  <option value="<?= school ?>"><?= school.replace(' School', '') ?></option>
+                <? }); ?>
+              </select>
+              <button class="btn btn-primary" onclick="addAdmin('school_admin')">
+                <span class="material-icons">add</span>
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <? } ?>
+
+      <!-- Settings Tab -->
+      <div class="admin-content" id="settingsContent">
+        <div class="settings-card">
+          <div class="settings-header">
+            <span class="material-icons">tune</span>
+            <h3>Default Analysis Thresholds</h3>
+          </div>
+          <div class="settings-body">
+            <p style="color: var(--text-muted); margin-bottom: 20px;">
+              These defaults apply to all new users. Individual users can customize their own settings.
+            </p>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Growth Threshold (%)</label>
+                <input type="number" id="defaultGrowth" class="form-input" value="50" min="0" max="100">
+                <span class="form-hint">Scores below this are "Needs Growth"</span>
+              </div>
+              <div class="form-group">
+                <label>Strength Threshold (%)</label>
+                <input type="number" id="defaultStrength" class="form-input" value="75" min="0" max="100">
+                <span class="form-hint">Scores at or above this are "Strength"</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Small Group Weakness (%)</label>
+                <input type="number" id="defaultSgThreshold" class="form-input" value="70" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label>Max Group Size</label>
+                <input type="number" id="defaultSgMax" class="form-input" value="5" min="2" max="20">
+              </div>
+            </div>
+            <button class="btn btn-primary mt-2" onclick="saveDefaultSettings()">
+              <span class="material-icons">save</span>
+              Save Defaults
+            </button>
+          </div>
+        </div>
+        
+        <div class="settings-card">
+          <div class="settings-header">
+            <span class="material-icons">storage</span>
+            <h3>Database Information</h3>
+          </div>
+          <div class="settings-body">
+            <div class="admin-item">
+              <div class="admin-item-info">
+                <span class="material-icons" style="color: var(--primary);">link</span>
+                <div>
+                  <div class="admin-item-email">Database Spreadsheet</div>
+                  <div class="admin-item-type">All data is stored in a Google Sheet</div>
+                </div>
+              </div>
+              <button class="btn btn-secondary" onclick="openDatabase()">
+                <span class="material-icons">open_in_new</span>
+                Open
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <?!= include('Scripts'); ?>
+  
+  <script>
+    // Base URL for navigation
+    const SCRIPT_URL = '<?= scriptUrl ?>';
+    
+    let allUsers = [];
+    let adminList = { division: [], school: [] };
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      loadOverviewData();
+      loadUsers();
+      <? if (user.role === 'division_admin') { ?>
+      loadAdminList();
+      <? } ?>
+    });
+    
+    function showAdminTab(tab) {
+      document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.admin-content').forEach(c => c.classList.remove('active'));
+      
+      event.target.closest('.admin-tab').classList.add('active');
+      document.getElementById(tab + 'Content').classList.add('active');
+    }
+    
+    function loadOverviewData() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          // Calculate overview stats
+          const totalAssessments = assessments.length;
+          const totalStudents = assessments.reduce((sum, a) => sum + (a.student_count || 0), 0);
+          const uniqueTeachers = new Set(assessments.map(a => a.teacher_email)).size;
+          
+          document.getElementById('totalAssessmentsOverview').textContent = totalAssessments;
+          document.getElementById('totalStudentsOverview').textContent = totalStudents.toLocaleString();
+          document.getElementById('totalTeachersOverview').textContent = uniqueTeachers;
+          document.getElementById('avgScoreOverview').textContent = '—';
+          
+          // Group by school
+          const bySchool = {};
+          assessments.forEach(a => {
+            const school = a.school || 'Unassigned';
+            if (!bySchool[school]) {
+              bySchool[school] = { assessments: 0, students: 0, teachers: new Set() };
+            }
+            bySchool[school].assessments++;
+            bySchool[school].students += a.student_count || 0;
+            bySchool[school].teachers.add(a.teacher_email);
+          });
+          
+          // Render school stats
+          const schoolContainer = document.getElementById('schoolStats');
+          if (Object.keys(bySchool).length === 0) {
+            schoolContainer.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><p>No school data available</p></div>';
+          } else {
+            schoolContainer.innerHTML = Object.entries(bySchool).map(([school, data]) => `
+              <div class="school-stat-card">
+                <div class="school-name">${school}</div>
+                <div class="school-metrics">
+                  <div class="school-metric">
+                    <div class="school-metric-value">${data.assessments}</div>
+                    <div class="school-metric-label">Assessments</div>
+                  </div>
+                  <div class="school-metric">
+                    <div class="school-metric-value">${data.students.toLocaleString()}</div>
+                    <div class="school-metric-label">Students</div>
+                  </div>
+                  <div class="school-metric">
+                    <div class="school-metric-value">${data.teachers.size}</div>
+                    <div class="school-metric-label">Teachers</div>
+                  </div>
+                </div>
+              </div>
+            `).join('');
+          }
+        })
+        .getAssessmentList();
+    }
+    
+    function loadUsers() {
+      google.script.run
+        .withSuccessHandler(function(users) {
+          allUsers = users || [];
+          renderUsers();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('usersTableBody').innerHTML = 
+            `<tr><td colspan="7" style="text-align: center; color: var(--color-error);">Error loading users</td></tr>`;
+        })
+        .getAllUsers();
+    }
+    
+    function renderUsers() {
+      const search = document.getElementById('userSearch').value.toLowerCase();
+      const roleFilter = document.getElementById('roleFilter').value;
+      
+      const filtered = allUsers.filter(u => {
+        const matchesSearch = !search || 
+          (u.name && u.name.toLowerCase().includes(search)) ||
+          (u.email && u.email.toLowerCase().includes(search));
+        const matchesRole = !roleFilter || u.role === roleFilter;
+        return matchesSearch && matchesRole;
+      });
+      
+      const tbody = document.getElementById('usersTableBody');
+      
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">No users found</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = filtered.map(u => `
+        <tr>
+          <td>
+            <div class="user-avatar-sm">${(u.name || u.email).charAt(0).toUpperCase()}</div>
+          </td>
+          <td><strong>${u.name || 'No name'}</strong></td>
+          <td style="color: var(--text-muted);">${u.email}</td>
+          <td>
+            <span class="role-badge ${u.role === 'division_admin' ? 'role-division' : u.role === 'school_admin' ? 'role-school' : 'role-teacher'}">
+              ${u.role === 'division_admin' ? 'Division Admin' : u.role === 'school_admin' ? 'School Admin' : 'Teacher'}
+            </span>
+          </td>
+          <td>${u.school || '-'}</td>
+          <td style="color: var(--text-muted);">${formatDate(u.created_at)}</td>
+          <td>
+            <button class="btn btn-ghost" style="padding: 8px;" onclick="editUser('${u.email}')">
+              <span class="material-icons">edit</span>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+    
+    function filterUsers() {
+      renderUsers();
+    }
+    
+    function editUser(email) {
+      showToast('User editing coming soon', 'info');
+    }
+    
+    <? if (user.role === 'division_admin') { ?>
+    function loadAdminList() {
+      google.script.run
+        .withSuccessHandler(function(admins) {
+          adminList = admins;
+          renderAdminLists();
+        })
+        .getAdminList();
+    }
+    
+    function renderAdminLists() {
+      // Division admins
+      const divisionContainer = document.getElementById('divisionAdminList');
+      if (adminList.division && adminList.division.length > 0) {
+        divisionContainer.innerHTML = adminList.division.map(a => `
+          <div class="admin-item">
+            <div class="admin-item-info">
+              <div class="user-avatar-sm">${a.email.charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="admin-item-email">${a.email}</div>
+                <div class="admin-item-type">Full access to all schools</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="color: var(--color-error);" onclick="removeAdmin('division_admin', '${a.email}')">
+              <span class="material-icons">delete</span>
+            </button>
+          </div>
+        `).join('');
+      } else {
+        divisionContainer.innerHTML = '<p style="color: var(--text-muted);">No division admins configured</p>';
+      }
+      
+      // School admins
+      const schoolContainer = document.getElementById('schoolAdminList');
+      if (adminList.school && adminList.school.length > 0) {
+        schoolContainer.innerHTML = adminList.school.map(a => `
+          <div class="admin-item">
+            <div class="admin-item-info">
+              <div class="user-avatar-sm">${a.email.charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="admin-item-email">${a.email}</div>
+                <div class="admin-item-type">${a.school || 'No school assigned'}</div>
+              </div>
+            </div>
+            <button class="btn btn-ghost" style="color: var(--color-error);" onclick="removeAdmin('school_admin', '${a.email}')">
+              <span class="material-icons">delete</span>
+            </button>
+          </div>
+        `).join('');
+      } else {
+        schoolContainer.innerHTML = '<p style="color: var(--text-muted);">No school admins configured</p>';
+      }
+    }
+    
+    function addAdmin(type) {
+      let email, school = '';
+      
+      if (type === 'division_admin') {
+        email = document.getElementById('newDivisionAdmin').value.trim();
+      } else {
+        email = document.getElementById('newSchoolAdmin').value.trim();
+        school = document.getElementById('newSchoolAdminSchool').value;
+        
+        if (!school) {
+          showToast('Please select a school', 'warning');
+          return;
+        }
+      }
+      
+      if (!email || !email.includes('@')) {
+        showToast('Please enter a valid email', 'warning');
+        return;
+      }
+      
+      showLoading('Adding administrator...');
+      
+      google.script.run
+        .withSuccessHandler(function() {
+          hideLoading();
+          showToast('Administrator added!', 'success');
+          
+          // Clear inputs
+          if (type === 'division_admin') {
+            document.getElementById('newDivisionAdmin').value = '';
+          } else {
+            document.getElementById('newSchoolAdmin').value = '';
+            document.getElementById('newSchoolAdminSchool').value = '';
+          }
+          
+          loadAdminList();
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Error: ' + error.message, 'error');
+        })
+        .addAdminEmail(type, email, school);
+    }
+    
+    function removeAdmin(type, email) {
+      showConfirm(
+        'Remove Administrator?',
+        `Remove ${email} from the ${type === 'division_admin' ? 'division' : 'school'} admin list?`,
+        function() {
+          showLoading('Removing administrator...');
+          
+          google.script.run
+            .withSuccessHandler(function() {
+              hideLoading();
+              showToast('Administrator removed', 'success');
+              loadAdminList();
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              showToast('Error: ' + error.message, 'error');
+            })
+            .removeAdminEmail(type, email);
+        }
+      );
+    }
+    <? } ?>
+    
+    function saveDefaultSettings() {
+      showToast('Default settings saved', 'success');
+    }
+    
+    function openDatabase() {
+      google.script.run
+        .withSuccessHandler(function(id) {
+          if (id) {
+            window.open('https://docs.google.com/spreadsheets/d/' + id, '_blank');
+          }
+        })
+        .getDatabaseId();
+    }
+  </script>
+</body>
+</html>

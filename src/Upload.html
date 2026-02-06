@@ -22,7 +22,7 @@
     .upload-zone:hover,
     .upload-zone.dragover {
       border-color: var(--primary);
-      background: rgba(0, 161, 75, 0.1);
+      background: rgba(124, 58, 237, 0.1);
     }
     
     .upload-zone .material-icons {
@@ -58,7 +58,7 @@
     .file-icon {
       width: 48px;
       height: 48px;
-      background: rgba(0, 161, 75, 0.15);
+      background: rgba(124, 58, 237, 0.15);
       border-radius: var(--border-radius-sm);
       display: flex;
       align-items: center;
@@ -218,7 +218,7 @@
     }
     
     .teacher-header:hover {
-      background: rgba(0, 161, 75, 0.1);
+      background: rgba(124, 58, 237, 0.1);
     }
     
     .teacher-header .material-icons {
@@ -254,8 +254,8 @@
   <nav class="sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <span class="logo-icon">📊</span>
-        <span class="logo-text">MC Analyzer</span>
+        <span class="logo-icon">🏛️</span>
+        <span class="logo-text">KCMS Analyzer</span>
       </div>
     </div>
     
@@ -269,12 +269,16 @@
         <span class="material-icons">cloud_upload</span>
         <span>Upload Data</span>
       </a>
+      <a href="<?= scriptUrl ?>?page=compare" class="nav-item">
+        <span class="material-icons">compare_arrows</span>
+        <span>Compare</span>
+      </a>
       <a href="<?= scriptUrl ?>?page=history" class="nav-item">
         <span class="material-icons">history</span>
         <span>Assessment History</span>
       </a>
     </div>
-    
+
     <? if (user.role !== 'teacher') { ?>
     <div class="nav-section">
       <div class="nav-label">ADMIN</div>
@@ -301,7 +305,7 @@
     <header class="top-header">
       <div class="header-left">
         <h1>Upload Assessment Data</h1>
-        <span class="header-subtitle">Import your Mastery Connect CSV export</span>
+        <span class="header-subtitle">Import your Mastery Connect benchmark CSV export</span>
       </div>
     </header>
 

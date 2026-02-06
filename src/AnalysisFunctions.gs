@@ -658,3 +658,178 @@ function deleteExistingAnalysis(assessmentId) {
     sheet.deleteRow(row);
   });
 }
+
+/**
+ * Compares two assessments and returns a comparison report.
+ * Each assessment must already be uploaded. Runs analysis on both
+ * (if not already cached) and produces per-teacher & per-SOL deltas.
+ */
+function compareAssessments(assessmentIdA, assessmentIdB) {
+  var user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('User not authenticated');
+
+  // Load both datasets
+  var dataA = getAssessmentData(assessmentIdA);
+  var dataB = getAssessmentData(assessmentIdB);
+  var settings = user.settings || CONFIG.defaults;
+
+  var questionsA = parseQuestions(dataA.header, dataA.solRow);
+  var questionsB = parseQuestions(dataB.header, dataB.solRow);
+
+  var teacherColA = findColIndex(dataA.header, 'teacher');
+  var teacherColB = findColIndex(dataB.header, 'teacher');
+  var pctColA = findColIndex(dataA.header, 'percentage');
+  var pctColB = findColIndex(dataB.header, 'percentage');
+  var studentIdColA = findColIndex(dataA.header, 'student_id');
+  var studentIdColB = findColIndex(dataB.header, 'student_id');
+  var firstNameColA = findColIndex(dataA.header, 'first_name');
+  var lastNameColA = findColIndex(dataA.header, 'last_name');
+  var firstNameColB = findColIndex(dataB.header, 'first_name');
+  var lastNameColB = findColIndex(dataB.header, 'last_name');
+
+  // ── Per-teacher SOL comparison ──
+  function buildTeacherSOLStats(students, questions, teacherCol) {
+    var stats = {};
+    students.forEach(function(r) {
+      var t = r[teacherCol] || 'Unknown';
+      if (!stats[t]) stats[t] = {};
+      questions.forEach(function(q) {
+        if (!stats[t][q.sol]) stats[t][q.sol] = { c: 0, t: 0 };
+        var sc = r[q.scoreColIndex];
+        if (sc == 1 || sc == '1') { stats[t][q.sol].c++; stats[t][q.sol].t++; }
+        else if (sc == 0 || sc == '0') { stats[t][q.sol].t++; }
+      });
+    });
+    // convert to percentages
+    var result = {};
+    Object.keys(stats).forEach(function(t) {
+      result[t] = {};
+      Object.keys(stats[t]).forEach(function(sol) {
+        var s = stats[t][sol];
+        result[t][sol] = s.t > 0 ? Math.round((s.c / s.t) * 100) : null;
+      });
+    });
+    return result;
+  }
+
+  var solStatsA = buildTeacherSOLStats(dataA.students, questionsA, teacherColA);
+  var solStatsB = buildTeacherSOLStats(dataB.students, questionsB, teacherColB);
+
+  // All teachers across both assessments
+  var allTeachers = Object.keys(solStatsA);
+  Object.keys(solStatsB).forEach(function(t) {
+    if (allTeachers.indexOf(t) === -1) allTeachers.push(t);
+  });
+  allTeachers.sort();
+
+  // All SOLs across both
+  var allSOLs = [];
+  [solStatsA, solStatsB].forEach(function(ss) {
+    Object.keys(ss).forEach(function(t) {
+      Object.keys(ss[t]).forEach(function(sol) {
+        if (allSOLs.indexOf(sol) === -1) allSOLs.push(sol);
+      });
+    });
+  });
+  allSOLs.sort();
+
+  // Build teacher comparison rows
+  var teacherComparisons = allTeachers.map(function(teacher) {
+    var solDeltas = allSOLs.map(function(sol) {
+      var pctA = (solStatsA[teacher] && solStatsA[teacher][sol] != null) ? solStatsA[teacher][sol] : null;
+      var pctB = (solStatsB[teacher] && solStatsB[teacher][sol] != null) ? solStatsB[teacher][sol] : null;
+      var delta = (pctA !== null && pctB !== null) ? pctB - pctA : null;
+      return { sol: sol, pctA: pctA, pctB: pctB, delta: delta };
+    });
+
+    // Overall averages
+    var countA = 0, sumA = 0, countB = 0, sumB = 0;
+    dataA.students.forEach(function(r) {
+      if (r[teacherColA] === teacher && r[pctColA] != null && r[pctColA] !== '') {
+        sumA += parseFloat(r[pctColA]); countA++;
+      }
+    });
+    dataB.students.forEach(function(r) {
+      if (r[teacherColB] === teacher && r[pctColB] != null && r[pctColB] !== '') {
+        sumB += parseFloat(r[pctColB]); countB++;
+      }
+    });
+    var avgA = countA > 0 ? Math.round(sumA / countA) : null;
+    var avgB = countB > 0 ? Math.round(sumB / countB) : null;
+    var avgDelta = (avgA !== null && avgB !== null) ? avgB - avgA : null;
+
+    return {
+      teacher: teacher,
+      studentsA: countA,
+      studentsB: countB,
+      avgA: avgA,
+      avgB: avgB,
+      avgDelta: avgDelta,
+      solDeltas: solDeltas
+    };
+  });
+
+  // ── Per-student comparison (matched by student_id) ──
+  var studentMapA = {};
+  dataA.students.forEach(function(r) {
+    var sid = r[studentIdColA];
+    if (sid) {
+      var name = ((r[firstNameColA] || '') + ' ' + (r[lastNameColA] || '')).trim();
+      var teacher = r[teacherColA] || '';
+      var pct = parseFloat(r[pctColA]) || 0;
+      studentMapA[sid] = { name: name, teacher: teacher, pct: pct };
+    }
+  });
+  var studentMapB = {};
+  dataB.students.forEach(function(r) {
+    var sid = r[studentIdColB];
+    if (sid) {
+      var name = ((r[firstNameColB] || '') + ' ' + (r[lastNameColB] || '')).trim();
+      var teacher = r[teacherColB] || '';
+      var pct = parseFloat(r[pctColB]) || 0;
+      studentMapB[sid] = { name: name, teacher: teacher, pct: pct };
+    }
+  });
+
+  var studentComparisons = [];
+  // Students present in both assessments
+  Object.keys(studentMapA).forEach(function(sid) {
+    if (studentMapB[sid]) {
+      studentComparisons.push({
+        studentId: sid,
+        name: studentMapA[sid].name || studentMapB[sid].name,
+        teacher: studentMapB[sid].teacher || studentMapA[sid].teacher,
+        pctA: studentMapA[sid].pct,
+        pctB: studentMapB[sid].pct,
+        delta: Math.round(studentMapB[sid].pct - studentMapA[sid].pct)
+      });
+    }
+  });
+  studentComparisons.sort(function(a, b) { return a.delta - b.delta; });
+
+  // ── Overall summary ──
+  var totalA = dataA.students.length;
+  var totalB = dataB.students.length;
+  var overallSumA = 0, overallCountA = 0;
+  dataA.students.forEach(function(r) {
+    var v = parseFloat(r[pctColA]);
+    if (!isNaN(v)) { overallSumA += v; overallCountA++; }
+  });
+  var overallSumB = 0, overallCountB = 0;
+  dataB.students.forEach(function(r) {
+    var v = parseFloat(r[pctColB]);
+    if (!isNaN(v)) { overallSumB += v; overallCountB++; }
+  });
+  var overallAvgA = overallCountA > 0 ? Math.round(overallSumA / overallCountA) : 0;
+  var overallAvgB = overallCountB > 0 ? Math.round(overallSumB / overallCountB) : 0;
+
+  return {
+    assessmentA: { id: assessmentIdA, name: dataA.assessment.name, studentCount: totalA, average: overallAvgA },
+    assessmentB: { id: assessmentIdB, name: dataB.assessment.name, studentCount: totalB, average: overallAvgB },
+    overallDelta: overallAvgB - overallAvgA,
+    sols: allSOLs,
+    teacherComparisons: teacherComparisons,
+    studentComparisons: studentComparisons,
+    matchedStudentCount: studentComparisons.length
+  };
+}

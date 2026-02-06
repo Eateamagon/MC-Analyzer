@@ -34,25 +34,21 @@ const CONFIG = {
     classPeriods: 'ClassPeriods',
     analysisResults: 'AnalysisResults'
   },
-  
+
   // Schools in the division
   schools: [
-    'Berkeley Glenn Elementary School',
-    'Wenonah Elementary School',
-    'Westwood Hills Elementary School',
-    'William Perry Elementary School',
-    'Kate Collins Middle School',
-    'Waynesboro High School'
+    'Kate Collins Middle School'
   ],
-  
-  // Color Palette - Mastery Connect Theme (Dark)
+
+  // Color Palette - KCMS Purple & Gold Theme (Dark)
   colors: {
-    primary: '#00a14b',       // Mastery Connect Green
-    primaryDark: '#008f42',   // Darker green
-    primaryLight: '#00c05a',  // Lighter green
-    background: '#1a1a2e',    // Dark background
-    surface: '#16213e',       // Card/surface background
-    surfaceLight: '#1f2b47',  // Lighter surface
+    primary: '#7C3AED',       // KCMS Purple
+    primaryDark: '#6D28D9',   // Darker purple
+    primaryLight: '#8B5CF6',  // Lighter purple
+    gold: '#EAB308',          // KCMS Gold accent
+    background: '#151225',    // Dark background
+    surface: '#1e1a32',       // Card/surface background
+    surfaceLight: '#28243f',  // Lighter surface
     text: '#ffffff',          // Primary text
     textMuted: '#a0aec0',     // Muted text
     growth: '#ef4444',        // Red - needs growth
@@ -98,7 +94,7 @@ function doGet(e) {
       loginTemplate.scriptUrl = ScriptApp.getService().getUrl();
       loginTemplate.urlParams = (e && e.parameter) ? e.parameter : {};
       return loginTemplate.evaluate()
-        .setTitle('Mastery Connect Analyzer - Login')
+        .setTitle('KCMS Benchmark Analyzer - Login')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
     
@@ -109,6 +105,9 @@ function doGet(e) {
   switch (page) {
     case 'upload':
       template = HtmlService.createTemplateFromFile('Upload');
+      break;
+    case 'compare':
+      template = HtmlService.createTemplateFromFile('Compare');
       break;
     case 'analysis':
       template = HtmlService.createTemplateFromFile('Analysis');
@@ -144,7 +143,7 @@ function doGet(e) {
   }
   
   return template.evaluate()
-    .setTitle('Mastery Connect Analyzer')
+    .setTitle('KCMS Benchmark Analyzer')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
     
@@ -154,9 +153,9 @@ function doGet(e) {
       '<html><body style="font-family: Arial; padding: 40px; background: #1a1a2e; color: white;">' +
       '<h1 style="color: #ef4444;">Error Loading Page</h1>' +
       '<p>Something went wrong: ' + error.message + '</p>' +
-      '<p><a href="' + ScriptApp.getService().getUrl() + '" style="color: #00a14b;">Return to Dashboard</a></p>' +
+      '<p><a href="' + ScriptApp.getService().getUrl() + '" style="color: #7C3AED;">Return to Dashboard</a></p>' +
       '</body></html>'
-    ).setTitle('Error - Mastery Connect Analyzer');
+    ).setTitle('Error - KCMS Benchmark Analyzer');
   }
 }
 
@@ -382,7 +381,7 @@ function getOrCreateDatabase() {
   }
   
   // Create new database
-  const ss = SpreadsheetApp.create('Mastery Connect Analyzer Database');
+  const ss = SpreadsheetApp.create('KCMS Benchmark Analyzer Database');
   ssId = ss.getId();
   props.setProperty('DATABASE_ID', ssId);
   

@@ -356,7 +356,7 @@
   <!-- Initial Loading State -->
   <div id="pageLoading" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-primary, #0d1421); display: flex; align-items: center; justify-content: center; z-index: 10000;">
     <div style="text-align: center; color: white;">
-      <div class="spinner" style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #00a14b; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+      <div class="spinner" style="width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: #7C3AED; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
       <div>Loading Analysis...</div>
     </div>
     <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
@@ -375,8 +375,8 @@
   <nav class="sidebar">
     <div class="sidebar-header">
       <div class="logo">
-        <span class="logo-icon">📊</span>
-        <span class="logo-text">MC Analyzer</span>
+        <span class="logo-icon">🏛️</span>
+        <span class="logo-text">KCMS Analyzer</span>
       </div>
     </div>
     
@@ -389,6 +389,10 @@
       <a href="<?= scriptUrl || '' ?>?page=upload" class="nav-item">
         <span class="material-icons">cloud_upload</span>
         <span>Upload Data</span>
+      </a>
+      <a href="<?= scriptUrl || '' ?>?page=compare" class="nav-item">
+        <span class="material-icons">compare_arrows</span>
+        <span>Compare</span>
       </a>
       <a href="<?= scriptUrl || '' ?>?page=history" class="nav-item">
         <span class="material-icons">history</span>
@@ -967,7 +971,7 @@
       container.innerHTML = `
         <div class="stats-grid mb-3">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(0, 161, 75, 0.2); color: #00a14b;">
+            <div class="stat-icon" style="background: rgba(124, 58, 237, 0.2); color: #7C3AED;">
               <span class="material-icons">people</span>
             </div>
             <div class="stat-info">

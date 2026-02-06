@@ -370,16 +370,17 @@
 
     function runComparison() {
       if (!selectedA || !selectedB) return;
-      showLoading('Comparing assessments...');
+      var btn = document.getElementById('runCompareBtn');
+      var restore = setBtnLoading(btn, 'Comparing...');
 
       google.script.run
         .withSuccessHandler(function(results) {
-          hideLoading();
+          restore();
           comparisonResults = results;
           displayComparison();
         })
         .withFailureHandler(function(err) {
-          hideLoading();
+          restore();
           showToast('Comparison failed: ' + err.message, 'error');
         })
         .compareAssessments(selectedA, selectedB);

@@ -654,9 +654,11 @@
         showToast('Please enter an assessment name', 'error');
         return;
       }
-      
-      showLoading('Uploading assessment data...');
-      
+
+      // Find and disable the upload button
+      var btn = document.querySelector('#step2Content .btn-primary') || event.target.closest('.btn');
+      var restore = btn ? setBtnLoading(btn, 'Uploading...') : function(){};
+
       const metadata = {
         name: name,
         subject: document.getElementById('assessmentSubject').value,
@@ -665,33 +667,33 @@
         dateAdministered: document.getElementById('dateAdministered').value,
         school: document.getElementById('assessmentSchool').value
       };
-      
+
       google.script.run
         .withSuccessHandler(function(result) {
-          hideLoading();
-          
+          restore();
+
           // Check if this is a duplicate
           if (result.isDuplicate) {
             showDuplicateDialog(result);
             return;
           }
-          
+
           if (!result.success) {
             showToast(result.message || 'Upload failed', 'error');
             return;
           }
-          
+
           currentAssessmentId = result.assessmentId;
           studentsList = result.students;
-          
-          showToast(`Uploaded ${result.studentCount} students with ${result.questionCount} questions`, 'success');
-          
+
+          showToast('Uploaded ' + result.studentCount + ' students with ' + result.questionCount + ' questions', 'success');
+
           // Build periods list
           buildPeriodsList();
           goToStep(3);
         })
         .withFailureHandler(function(error) {
-          hideLoading();
+          restore();
           showToast('Upload failed: ' + error.message, 'error');
         })
         .processCSVUpload({
@@ -879,17 +881,17 @@
     
     function savePeriods() {
       const periodData = collectPeriodData();
-      
-      showLoading('Saving class periods...');
-      
+      var btn = event ? event.target.closest('.btn') : null;
+      var restore = btn ? setBtnLoading(btn, 'Saving...') : function(){};
+
       google.script.run
         .withSuccessHandler(function() {
-          hideLoading();
+          restore();
           showToast('Class periods saved!', 'success');
           window.location.href = SCRIPT_URL + '?page=analysis&id=' + currentAssessmentId;
         })
         .withFailureHandler(function(error) {
-          hideLoading();
+          restore();
           showToast('Error saving periods: ' + error.message, 'error');
         })
         .updateClassPeriods(currentAssessmentId, periodData);

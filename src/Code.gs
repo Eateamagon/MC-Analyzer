@@ -663,46 +663,52 @@ function processCSVUpload(uploadData) {
     'pending_periods'
   ]);
   
-  // Store raw data
+  // Store raw data - consolidated: 1 row for sol, 1 for header, 1 for all students (JSON array)
   const rawDataSheet = ss.getSheetByName(CONFIG.sheets.rawData);
-  
-  // Store SOL row
-  rawDataSheet.appendRow([assessmentId, 0, 'sol', JSON.stringify(filteredRows[0])]);
-  
-  // Store header row
-  rawDataSheet.appendRow([assessmentId, 1, 'header', JSON.stringify(filteredRows[1])]);
-  
-  // Store student rows
-  for (let i = 2; i < filteredRows.length; i++) {
-    rawDataSheet.appendRow([assessmentId, i, 'student', JSON.stringify(filteredRows[i])]);
-  }
-  
-  // Prepare class period data
+
+  // Build all raw data rows at once for batch write
+  const rawRows = [
+    [assessmentId, 0, 'sol', JSON.stringify(filteredRows[0])],
+    [assessmentId, 1, 'header', JSON.stringify(filteredRows[1])],
+    [assessmentId, 2, 'students', JSON.stringify(filteredRows.slice(2))]
+  ];
+
+  // Single batch write instead of N appendRow calls
+  const rawStartRow = rawDataSheet.getLastRow() + 1;
+  rawDataSheet.getRange(rawStartRow, 1, rawRows.length, 4).setValues(rawRows);
+
+  // Prepare class period data with batch write
   const classPeriodSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
   const firstNameCol = findCol('first_name');
   const lastNameCol = findCol('last_name');
   const studentIdCol = findCol('student_id');
-  
+
   const students = [];
+  const periodRows = [];
   for (let i = 2; i < filteredRows.length; i++) {
     const row = filteredRows[i];
     const studentName = `${row[firstNameCol] || ''} ${row[lastNameCol] || ''}`.trim();
-    
+
     students.push({
       studentId: row[studentIdCol],
       studentName: studentName,
       teacher: row[teacherColIdx],
       period: ''
     });
-    
-    // Add to class periods sheet
-    classPeriodSheet.appendRow([
+
+    periodRows.push([
       assessmentId,
       row[studentIdCol],
       studentName,
       row[teacherColIdx],
       ''
     ]);
+  }
+
+  // Single batch write for all class periods
+  if (periodRows.length > 0) {
+    const periodStartRow = classPeriodSheet.getLastRow() + 1;
+    classPeriodSheet.getRange(periodStartRow, 1, periodRows.length, 5).setValues(periodRows);
   }
   
   return {
@@ -859,7 +865,7 @@ function getAssessmentData(assessmentId) {
 
     let solRow = [];
     let header = [];
-    const students = [];
+    let students = [];
 
     for (let i = 1; i < rawData.length; i++) {
       if (rawData[i][0] != null && String(rawData[i][0]).trim() === normalId) {
@@ -869,7 +875,8 @@ function getAssessmentData(assessmentId) {
 
           if (rowType === 'sol') solRow = data;
           else if (rowType === 'header') header = data;
-          else if (rowType === 'student') students.push(data);
+          else if (rowType === 'students') students = data; // New consolidated format: array of all students
+          else if (rowType === 'student') students.push(data); // Legacy format: one row per student
         } catch (parseError) {
           Logger.log('Error parsing row ' + i + ': ' + parseError.message);
         }

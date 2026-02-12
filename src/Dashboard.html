@@ -180,6 +180,42 @@
           </div>
         </div>
       </div>
+
+      <!-- Small Groups Toolkit -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">groups</span>
+            Quick Small Groups
+          </h2>
+        </div>
+        <div class="card-body">
+          <p style="color:var(--text-muted); margin-bottom:16px; font-size:13px;">Select one or more assessments to generate small groups based on combined student data.</p>
+          <div id="dashSgSourceList" style="max-height:220px; overflow-y:auto; border:1px solid rgba(255,255,255,0.08); border-radius:var(--border-radius-sm); margin-bottom:16px;">
+            <div class="loading-spinner" style="padding:20px;">
+              <div class="spinner"></div>
+              <span>Loading assessments...</span>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span id="dashSgCount" style="font-size:12px; color:var(--text-muted);">Select at least 1 assessment</span>
+            <button class="btn btn-primary" id="dashSgBtn" onclick="dashGenerateSmallGroups()" disabled>
+              <span class="material-icons">groups</span>
+              Generate Small Groups
+            </button>
+          </div>
+          <!-- Results container -->
+          <div id="dashSgResults" style="display:none; margin-top:20px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+              <h3 style="font-size:15px; font-weight:600;">Results</h3>
+              <select id="dashSgTeacherFilter" class="form-input" style="width:auto; min-width:160px;" onchange="dashFilterGroups()">
+                <option value="">All Teachers</option>
+              </select>
+            </div>
+            <div id="dashSgGroupCards"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -401,6 +437,149 @@
     function showDistrictSummary() {
       showToast('Select an assessment to view district summary', 'info');
     }
+
+    // ── Quick Small Groups Toolkit ──────────────────────────────────
+    var dashSgIds = [];
+    var dashSgAssessments = [];
+
+    function loadDashSgSources() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          dashSgAssessments = assessments || [];
+          renderDashSgSources();
+        })
+        .withFailureHandler(function() {
+          document.getElementById('dashSgSourceList').innerHTML =
+            '<p style="color:var(--color-error); padding:12px;">Error loading assessments</p>';
+        })
+        .getAssessmentList();
+    }
+
+    function renderDashSgSources() {
+      var container = document.getElementById('dashSgSourceList');
+      if (dashSgAssessments.length === 0) {
+        container.innerHTML = '<p style="padding:16px; color:var(--text-muted);">No assessments available. Upload data first.</p>';
+        return;
+      }
+      container.innerHTML = dashSgAssessments.map(function(a) {
+        return '<label class="sg-source-item">' +
+          '<input type="checkbox" value="' + a.id + '" onchange="dashToggleSg(this)">' +
+          '<div>' +
+            '<div class="source-name">' + (a.name || 'Unnamed') + '</div>' +
+            '<div class="source-meta">' +
+              (a.subject || '') + (a.grade_level ? ' &bull; Grade ' + a.grade_level : '') +
+              ' &bull; ' + (a.student_count || 0) + ' students' +
+              ' &bull; ' + formatDate(a.date_uploaded) +
+            '</div>' +
+          '</div>' +
+        '</label>';
+      }).join('');
+    }
+
+    function dashToggleSg(checkbox) {
+      var id = checkbox.value;
+      var idx = dashSgIds.indexOf(id);
+      if (checkbox.checked && idx === -1) {
+        dashSgIds.push(id);
+      } else if (!checkbox.checked && idx !== -1) {
+        dashSgIds.splice(idx, 1);
+      }
+      var label = checkbox.closest('.sg-source-item');
+      if (label) label.classList.toggle('checked', checkbox.checked);
+
+      var btn = document.getElementById('dashSgBtn');
+      var count = document.getElementById('dashSgCount');
+      btn.disabled = dashSgIds.length === 0;
+      if (dashSgIds.length === 0) {
+        count.textContent = 'Select at least 1 assessment';
+      } else {
+        count.textContent = dashSgIds.length + ' assessment' + (dashSgIds.length > 1 ? 's' : '') + ' selected';
+      }
+    }
+
+    function dashGenerateSmallGroups() {
+      if (dashSgIds.length === 0) return;
+      var btn = document.getElementById('dashSgBtn');
+      var restore = setBtnLoading(btn, 'Generating...');
+      showLoading('Generating small groups...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          restore();
+          dashRenderResults(result);
+          showToast('Small groups ready! ' + result.groups.length + ' groups formed.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          restore();
+          showToast('Error: ' + error.message, 'error');
+        })
+        .generateMultiSourceSmallGroups(dashSgIds);
+    }
+
+    function dashRenderResults(result) {
+      var wrapper = document.getElementById('dashSgResults');
+      var container = document.getElementById('dashSgGroupCards');
+      wrapper.style.display = 'block';
+
+      var groups = result.groups;
+      if (groups.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:24px;"><p>No students met the weakness threshold. Try adjusting your settings.</p></div>';
+        return;
+      }
+
+      // Teacher filter
+      var teachers = [];
+      groups.forEach(function(g) {
+        if (teachers.indexOf(g.teacher) === -1) teachers.push(g.teacher);
+      });
+      var filter = document.getElementById('dashSgTeacherFilter');
+      filter.innerHTML = '<option value="">All Teachers</option>';
+      teachers.sort().forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        filter.appendChild(opt);
+      });
+
+      container.innerHTML =
+        '<div style="margin-bottom:12px;font-size:13px;color:var(--text-muted);">' +
+          'Based on: <strong>' + result.sources.join('</strong>, <strong>') + '</strong>' +
+          ' &bull; ' + result.studentCount + ' students matched' +
+        '</div>' +
+        groups.map(function(group) {
+          return '<div class="group-card" data-teacher="' + group.teacher + '">' +
+            '<div class="group-header">' +
+              '<div class="group-title">' +
+                '<span class="material-icons" style="color: var(--primary);">groups</span>' +
+                group.teacher + ' - Group ' + group.groupNumber +
+              '</div>' +
+              '<span class="group-period ' + (group.isUnknownPeriod ? 'unknown' : '') + '">' + group.period + '</span>' +
+            '</div>' +
+            '<div class="group-students">' +
+              group.students.map(function(s) { return '<span class="student-tag">' + s + '</span>'; }).join('') +
+            '</div>' +
+            '<div class="group-sols">' +
+              '<div class="sol-label">Focus SOLs:</div>' +
+              group.sharedWeakSOLs.map(function(sol) { return '<span class="sol-tag">' + sol + '</span>'; }).join('') +
+            '</div>' +
+          '</div>';
+        }).join('');
+    }
+
+    function dashFilterGroups() {
+      var teacher = document.getElementById('dashSgTeacherFilter').value;
+      var cards = document.querySelectorAll('#dashSgGroupCards .group-card');
+      cards.forEach(function(card) {
+        card.style.display = (!teacher || card.dataset.teacher === teacher) ? '' : 'none';
+      });
+    }
+
+    // Load small group sources on page ready
+    document.addEventListener('DOMContentLoaded', function() {
+      loadDashSgSources();
+    });
   </script>
 </body>
 </html>

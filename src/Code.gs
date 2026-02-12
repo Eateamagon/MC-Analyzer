@@ -889,15 +889,38 @@ function processCSVUpload(uploadData) {
     'pending_periods'
   ]);
   
-  // Store raw data - consolidated: 1 row for sol, 1 for header, 1 for all students (JSON array)
+  // Store raw data - sol row, header row, and student rows chunked to fit cell limits
   const rawDataSheet = ss.getSheetByName(CONFIG.sheets.rawData);
+  const CELL_CHAR_LIMIT = 45000; // Stay under Sheets' 50K char/cell limit
+  const allStudents = filteredRows.slice(2);
 
-  // Build all raw data rows at once for batch write
   const rawRows = [
     [assessmentId, 0, 'sol', JSON.stringify(filteredRows[0])],
-    [assessmentId, 1, 'header', JSON.stringify(filteredRows[1])],
-    [assessmentId, 2, 'students', JSON.stringify(filteredRows.slice(2))]
+    [assessmentId, 1, 'header', JSON.stringify(filteredRows[1])]
   ];
+
+  // Chunk students across multiple rows so no single cell exceeds the limit
+  let chunk = [];
+  let chunkSize = 2; // account for JSON array brackets '[]'
+  let rowIdx = 2;
+
+  for (let i = 0; i < allStudents.length; i++) {
+    const studentJson = JSON.stringify(allStudents[i]);
+    const addedSize = studentJson.length + (chunk.length > 0 ? 1 : 0); // +1 for comma separator
+
+    if (chunkSize + addedSize > CELL_CHAR_LIMIT && chunk.length > 0) {
+      rawRows.push([assessmentId, rowIdx++, 'students', JSON.stringify(chunk)]);
+      chunk = [];
+      chunkSize = 2;
+    }
+
+    chunk.push(allStudents[i]);
+    chunkSize += addedSize;
+  }
+
+  if (chunk.length > 0) {
+    rawRows.push([assessmentId, rowIdx++, 'students', JSON.stringify(chunk)]);
+  }
 
   // Single batch write instead of N appendRow calls
   const rawStartRow = rawDataSheet.getLastRow() + 1;
@@ -1101,7 +1124,7 @@ function getAssessmentData(assessmentId) {
 
           if (rowType === 'sol') solRow = data;
           else if (rowType === 'header') header = data;
-          else if (rowType === 'students') students = data; // New consolidated format: array of all students
+          else if (rowType === 'students') students = students.concat(data); // Chunked or single array of students
           else if (rowType === 'student') students.push(data); // Legacy format: one row per student
         } catch (parseError) {
           Logger.log('Error parsing row ' + i + ': ' + parseError.message);

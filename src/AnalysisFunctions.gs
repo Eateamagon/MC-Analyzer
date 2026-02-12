@@ -107,6 +107,29 @@ function runAnalysis(assessmentId, options) {
   
   // Store results
   storeAnalysisResults(assessmentId, results);
+
+  // Mark assessment as ready (in case it was still pending_periods)
+  try {
+    const ss = getOrCreateDatabase();
+    const aSheet = ss.getSheetByName(CONFIG.sheets.assessments);
+    if (aSheet) {
+      const aData = aSheet.getDataRange().getValues();
+      const aHeaders = aData[0];
+      const idCol = aHeaders.indexOf('id');
+      const statusCol = aHeaders.indexOf('status');
+      const normalId = String(assessmentId).trim();
+      for (let i = 1; i < aData.length; i++) {
+        if (aData[i][idCol] != null && String(aData[i][idCol]).trim() === normalId) {
+          if (aData[i][statusCol] !== 'ready') {
+            aSheet.getRange(i + 1, statusCol + 1).setValue('ready');
+          }
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log('Could not update assessment status: ' + e.message);
+  }
   
   // Send email notification if requested
   if (options.sendEmail) {

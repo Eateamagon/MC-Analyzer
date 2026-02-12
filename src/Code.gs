@@ -1515,6 +1515,10 @@ function updateAssessmentMetadata(assessmentId, metadata) {
       if (metadata.gradeLevel !== undefined && gradeCol !== -1) {
         sheet.getRange(i + 1, gradeCol + 1).setValue(metadata.gradeLevel);
       }
+      var dateCol = headers.indexOf('date_administered');
+      if (metadata.dateAdministered !== undefined && dateCol !== -1) {
+        sheet.getRange(i + 1, dateCol + 1).setValue(metadata.dateAdministered);
+      }
 
       return { success: true };
     }

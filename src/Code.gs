@@ -208,34 +208,60 @@ function getCurrentUser() {
     // Check if user exists in our system
     const userData = getUserData(email);
 
-    if (!userData) {
-      // Check if there's a pending access request
-      const pendingRequest = getAccessRequestByEmail(email);
-      if (pendingRequest) {
-        return {
-          email: email,
-          name: pendingRequest.name,
-          role: null,
-          school: pendingRequest.school,
-          settings: CONFIG.defaults,
-          isNewUser: true,
-          hasPendingRequest: true
-        };
-      }
+    if (userData) {
+      return userData;
+    }
 
-      // New user - return basic info for access request
+    // User not in Users sheet — check if they're a configured admin
+    // Admins listed in Settings bypass the access request flow
+    const adminRole = checkIfAdmin(email);
+    if (adminRole) {
+      const ss = getOrCreateDatabase();
+      const userSheet = ss.getSheetByName(CONFIG.sheets.users);
+      const name = email.split('@')[0];
+      const school = CONFIG.schools[0] || '';
+      userSheet.appendRow([
+        email,
+        name,
+        adminRole,
+        school,
+        JSON.stringify(CONFIG.defaults),
+        new Date().toISOString()
+      ]);
       return {
         email: email,
-        name: email.split('@')[0],
-        role: null,
-        school: null,
+        name: name,
+        role: adminRole,
+        school: school,
         settings: CONFIG.defaults,
-        isNewUser: true,
-        hasPendingRequest: false
+        isNewUser: false
       };
     }
 
-    return userData;
+    // Check if there's a pending access request
+    const pendingRequest = getAccessRequestByEmail(email);
+    if (pendingRequest) {
+      return {
+        email: email,
+        name: pendingRequest.name,
+        role: null,
+        school: pendingRequest.school,
+        settings: CONFIG.defaults,
+        isNewUser: true,
+        hasPendingRequest: true
+      };
+    }
+
+    // New user - return basic info for access request
+    return {
+      email: email,
+      name: email.split('@')[0],
+      role: null,
+      school: null,
+      settings: CONFIG.defaults,
+      isNewUser: true,
+      hasPendingRequest: false
+    };
   } catch (error) {
     Logger.log('getCurrentUser error: ' + error.message);
     return null;

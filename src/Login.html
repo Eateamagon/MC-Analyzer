@@ -350,36 +350,43 @@
   </div>
   
   <script>
+    var scriptUrl = '<?= scriptUrl ?>';
+
     document.getElementById('registrationForm').addEventListener('submit', function(e) {
       e.preventDefault();
-      
+
       const name = document.getElementById('userName').value.trim();
       const school = document.getElementById('userSchool').value;
       const submitBtn = document.getElementById('submitBtn');
       const errorMsg = document.getElementById('errorMessage');
-      
+
       if (!name || !school) {
         errorMsg.textContent = 'Please fill in all fields.';
         errorMsg.classList.add('active');
         return;
       }
-      
+
       // Show loading state
       submitBtn.querySelector('.btn-text').style.display = 'none';
       submitBtn.querySelector('.btn-icon').style.display = 'none';
       submitBtn.querySelector('.loading').classList.add('active');
       submitBtn.disabled = true;
       errorMsg.classList.remove('active');
-      
+
       google.script.run
         .withSuccessHandler(function(user) {
-          // Redirect to dashboard
-          window.top.location.reload();
+          // Navigate to dashboard by clicking a link with target="_top"
+          // This avoids the cross-origin error from accessing window.top.location directly
+          var link = document.createElement('a');
+          link.href = scriptUrl;
+          link.target = '_top';
+          document.body.appendChild(link);
+          link.click();
         })
         .withFailureHandler(function(error) {
           errorMsg.textContent = error.message || 'Registration failed. Please try again.';
           errorMsg.classList.add('active');
-          
+
           // Reset button
           submitBtn.querySelector('.btn-text').style.display = 'inline';
           submitBtn.querySelector('.btn-icon').style.display = 'inline';

@@ -80,7 +80,7 @@
         <span class="header-subtitle">Welcome back, <?= user.name || user.email.split('@')[0] ?></span>
       </div>
       <div class="header-right">
-        <button class="btn btn-primary" onclick="navigateTo('upload')">
+        <button class="btn btn-primary" onclick="navigateTo('upload', event)">
           <span class="material-icons">add</span>
           New Analysis
         </button>
@@ -161,7 +161,7 @@
         </div>
         <div class="card-body">
           <div class="quick-actions">
-            <button class="action-card" onclick="navigateTo('upload')">
+            <button class="action-card" onclick="navigateTo('upload', event)">
               <span class="material-icons">cloud_upload</span>
               <span>Upload CSV</span>
             </button>
@@ -298,7 +298,7 @@
       
       const recent = assessments.slice(0, 5);
       container.innerHTML = recent.map(a => `
-        <div class="assessment-item" onclick="viewAssessment('${a.id}')">
+        <div class="assessment-item" onclick="viewAssessment('${a.id}', event)">
           <div class="assessment-icon">
             <span class="material-icons">description</span>
           </div>
@@ -326,12 +326,22 @@
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
     
-    function viewAssessment(id) {
-      window.location.href = SCRIPT_URL + '?page=analysis&id=' + id;
+    function viewAssessment(id, ev) {
+      var el = ev ? (ev.target || ev.srcElement) : null;
+      navigateWithLoading(
+        SCRIPT_URL + '?page=analysis&id=' + id,
+        'Opening assessment...',
+        el
+      );
     }
-    
-    function navigateTo(page) {
-      window.location.href = SCRIPT_URL + '?page=' + page;
+
+    function navigateTo(page, ev) {
+      var el = ev ? (ev.target || ev.srcElement) : null;
+      navigateWithLoading(
+        SCRIPT_URL + '?page=' + page,
+        'Loading...',
+        el
+      );
     }
     
     function openSettings() {

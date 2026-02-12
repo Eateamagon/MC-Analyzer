@@ -458,13 +458,16 @@
     });
     
     function loadAssessments() {
+      showLoading('Loading assessments...');
       google.script.run
         .withSuccessHandler(function(assessments) {
+          hideLoading();
           allAssessments = assessments || [];
           filteredAssessments = [...allAssessments];
           renderAssessments();
         })
         .withFailureHandler(function(error) {
+          hideLoading();
           document.getElementById('assessmentsContainer').innerHTML = `
             <div class="empty-history">
               <span class="material-icons">error</span>
@@ -541,7 +544,7 @@
       const pageAssessments = filteredAssessments.slice(start, end);
       
       container.innerHTML = pageAssessments.map(a => `
-        <div class="assessment-card" onclick="viewAssessment('${a.id}')">
+        <div class="assessment-card" onclick="viewAssessment('${a.id}', event)">
           <div class="card-banner ${a.status === 'pending_periods' ? 'pending' : ''}"></div>
           <div class="card-content">
             <div class="card-header">
@@ -553,13 +556,13 @@
                 ${a.status === 'ready' ? 'Ready' : 'Setup'}
               </span>
             </div>
-            
+
             <div class="card-meta">
               ${a.subject ? `<span class="meta-tag"><span class="material-icons">book</span>${a.subject}</span>` : ''}
               ${a.grade_level ? `<span class="meta-tag"><span class="material-icons">school</span>Grade ${a.grade_level}</span>` : ''}
               ${a.assessment_type ? `<span class="meta-tag"><span class="material-icons">assignment</span>${a.assessment_type}</span>` : ''}
             </div>
-            
+
             <div class="card-stats">
               <div class="stat">
                 <div class="stat-number">${a.student_count || 0}</div>
@@ -576,9 +579,12 @@
             </div>
           </div>
           <div class="card-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-secondary" onclick="viewAssessment('${a.id}')">
+            <button class="btn btn-secondary" onclick="viewAssessment('${a.id}', event)">
               <span class="material-icons">analytics</span>
               Analyze
+            </button>
+            <button class="btn btn-secondary" onclick="renameAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
+              <span class="material-icons">edit</span>
             </button>
             <button class="btn btn-ghost" onclick="deleteAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
               <span class="material-icons">delete</span>
@@ -641,10 +647,62 @@
       renderAssessments();
     }
     
-    function viewAssessment(id) {
-      window.location.href = SCRIPT_URL + '?page=analysis&id=' + id;
+    function viewAssessment(id, ev) {
+      var el = ev ? (ev.target || ev.srcElement) : null;
+      navigateWithLoading(
+        SCRIPT_URL + '?page=analysis&id=' + id,
+        'Opening assessment...',
+        el
+      );
     }
     
+    function renameAssessment(id, currentName) {
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'renameModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 420px;">' +
+          '<div class="modal-header"><h2>Rename Assessment</h2></div>' +
+          '<div class="modal-body">' +
+            '<div class="form-group">' +
+              '<label>Assessment Name</label>' +
+              '<input type="text" id="renameInput" class="form-input" value="' + currentName.replace(/"/g, '&quot;') + '">' +
+            '</div>' +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'renameModal\').remove()">Cancel</button>' +
+            '<button class="btn btn-primary" id="renameSaveBtn" onclick="saveRename(\'' + id + '\')">Save</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+      var input = document.getElementById('renameInput');
+      input.focus();
+      input.select();
+    }
+
+    function saveRename(id) {
+      var newName = document.getElementById('renameInput').value.trim();
+      if (!newName) {
+        showToast('Name cannot be empty', 'error');
+        return;
+      }
+      var btn = document.getElementById('renameSaveBtn');
+      var restore = setBtnLoading(btn, 'Saving...');
+
+      google.script.run
+        .withSuccessHandler(function() {
+          restore();
+          document.getElementById('renameModal').remove();
+          showToast('Assessment renamed', 'success');
+          loadAssessments();
+        })
+        .withFailureHandler(function(error) {
+          restore();
+          showToast('Error: ' + error.message, 'error');
+        })
+        .renameAssessment(id, newName);
+    }
+
     function deleteAssessment(id, name) {
       showConfirm(
         'Delete Assessment?',

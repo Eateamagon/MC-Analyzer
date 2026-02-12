@@ -310,6 +310,38 @@ function setBtnLoading(btn, loadingText) {
 }
 
 /**
+ * Navigate to a URL with visible loading feedback.
+ * Shows a toast, optionally greys out a clicked element, and shows the loading overlay.
+ */
+function navigateWithLoading(url, message, clickedEl) {
+  message = message || 'Loading...';
+
+  // Show a quick toast so user knows the click registered
+  showToast(message, 'info', 3000);
+
+  // Grey out / animate the clicked element if provided
+  if (clickedEl) {
+    // Assessment card
+    var card = clickedEl.closest('.assessment-card');
+    if (card) card.classList.add('loading-card');
+
+    // Assessment item (dashboard list)
+    var item = clickedEl.closest('.assessment-item');
+    if (item) item.classList.add('loading-item');
+
+    // Nav item
+    var nav = clickedEl.closest('.nav-item');
+    if (nav) nav.classList.add('nav-loading');
+  }
+
+  // Show full-page loading overlay
+  showLoading(message);
+
+  // Navigate
+  window.location.href = url;
+}
+
+/**
  * Add slide out animation
  */
 const style = document.createElement('style');

@@ -583,9 +583,9 @@
               <span class="material-icons">analytics</span>
               Analyze
             </button>
-            <button class="btn btn-secondary" onclick="renameAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
+            <button class="btn btn-secondary" onclick="editAssessment('${a.id}')">
               <span class="material-icons">edit</span>
-              Rename
+              Edit
             </button>
             <button class="btn btn-ghost" onclick="deleteAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
               <span class="material-icons">delete</span>
@@ -657,51 +657,252 @@
       );
     }
     
-    function renameAssessment(id, currentName) {
+    function editAssessment(id) {
+      // Find the assessment data
+      var assessment = allAssessments.find(function(a) { return a.id === id; });
+      if (!assessment) {
+        showToast('Assessment not found', 'error');
+        return;
+      }
+
       var modal = document.createElement('div');
       modal.className = 'modal active';
-      modal.id = 'renameModal';
+      modal.id = 'editModal';
       modal.innerHTML =
-        '<div class="modal-content" style="max-width: 420px;">' +
-          '<div class="modal-header"><h2>Rename Assessment</h2></div>' +
+        '<div class="modal-content" style="max-width: 520px;">' +
+          '<div class="modal-header"><h2>Edit Assessment</h2></div>' +
           '<div class="modal-body">' +
             '<div class="form-group">' +
               '<label>Assessment Name</label>' +
-              '<input type="text" id="renameInput" class="form-input" value="' + currentName.replace(/"/g, '&quot;') + '">' +
+              '<input type="text" id="editName" class="form-input" value="' + (assessment.name || '').replace(/"/g, '&quot;') + '">' +
+            '</div>' +
+            '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' +
+              '<div class="form-group">' +
+                '<label>Subject</label>' +
+                '<select id="editSubject" class="form-input">' +
+                  '<option value="">Select subject...</option>' +
+                  '<option value="Math"' + (assessment.subject === 'Math' ? ' selected' : '') + '>Math</option>' +
+                  '<option value="English"' + (assessment.subject === 'English' ? ' selected' : '') + '>English/Language Arts</option>' +
+                  '<option value="Science"' + (assessment.subject === 'Science' ? ' selected' : '') + '>Science</option>' +
+                  '<option value="Civics"' + (assessment.subject === 'Civics' ? ' selected' : '') + '>Civics/Social Studies</option>' +
+                  '<option value="Other"' + (assessment.subject === 'Other' ? ' selected' : '') + '>Other</option>' +
+                '</select>' +
+              '</div>' +
+              '<div class="form-group">' +
+                '<label>Assessment Type</label>' +
+                '<select id="editType" class="form-input">' +
+                  '<option value="">Select type...</option>' +
+                  '<option value="Benchmark Q1"' + (assessment.assessment_type === 'Benchmark Q1' ? ' selected' : '') + '>Benchmark Q1</option>' +
+                  '<option value="Benchmark Q2"' + (assessment.assessment_type === 'Benchmark Q2' ? ' selected' : '') + '>Benchmark Q2</option>' +
+                  '<option value="Benchmark Q3"' + (assessment.assessment_type === 'Benchmark Q3' ? ' selected' : '') + '>Benchmark Q3</option>' +
+                  '<option value="Benchmark Q4"' + (assessment.assessment_type === 'Benchmark Q4' ? ' selected' : '') + '>Benchmark Q4</option>' +
+                  '<option value="Formative"' + (assessment.assessment_type === 'Formative' ? ' selected' : '') + '>Formative Assessment</option>' +
+                  '<option value="Summative"' + (assessment.assessment_type === 'Summative' ? ' selected' : '') + '>Summative Assessment</option>' +
+                  '<option value="Other"' + (assessment.assessment_type === 'Other' ? ' selected' : '') + '>Other</option>' +
+                '</select>' +
+              '</div>' +
+            '</div>' +
+            '<div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 16px; padding-top: 16px;">' +
+              '<button class="btn btn-secondary" style="width: 100%;" onclick="openAssignPeriods(\'' + id + '\')">' +
+                '<span class="material-icons">schedule</span>' +
+                'Assign Class Periods' +
+              '</button>' +
             '</div>' +
           '</div>' +
           '<div class="modal-footer">' +
-            '<button class="btn btn-ghost" onclick="document.getElementById(\'renameModal\').remove()">Cancel</button>' +
-            '<button class="btn btn-primary" id="renameSaveBtn" onclick="saveRename(\'' + id + '\')">Save</button>' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'editModal\').remove()">Cancel</button>' +
+            '<button class="btn btn-primary" id="editSaveBtn">Save Changes</button>' +
           '</div>' +
         '</div>';
       document.body.appendChild(modal);
-      var input = document.getElementById('renameInput');
-      input.focus();
-      input.select();
+
+      document.getElementById('editSaveBtn').addEventListener('click', function() {
+        saveAssessmentEdit(id);
+      });
+
+      document.getElementById('editName').focus();
     }
 
-    function saveRename(id) {
-      var newName = document.getElementById('renameInput').value.trim();
+    function saveAssessmentEdit(id) {
+      var newName = document.getElementById('editName').value.trim();
       if (!newName) {
         showToast('Name cannot be empty', 'error');
         return;
       }
-      var btn = document.getElementById('renameSaveBtn');
+
+      var metadata = {
+        name: newName,
+        subject: document.getElementById('editSubject').value,
+        assessmentType: document.getElementById('editType').value
+      };
+
+      var btn = document.getElementById('editSaveBtn');
       var restore = setBtnLoading(btn, 'Saving...');
 
       google.script.run
         .withSuccessHandler(function() {
           restore();
-          document.getElementById('renameModal').remove();
-          showToast('Assessment renamed', 'success');
+          document.getElementById('editModal').remove();
+          showToast('Assessment updated', 'success');
           loadAssessments();
         })
         .withFailureHandler(function(error) {
           restore();
           showToast('Error: ' + error.message, 'error');
         })
-        .renameAssessment(id, newName);
+        .updateAssessmentMetadata(id, metadata);
+    }
+
+    function openAssignPeriods(id) {
+      // Close the edit modal
+      var editModal = document.getElementById('editModal');
+      if (editModal) editModal.remove();
+
+      // Show loading
+      showLoading('Loading students...');
+
+      google.script.run
+        .withSuccessHandler(function(students) {
+          hideLoading();
+          showPeriodsModal(id, students);
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          showToast('Error loading students: ' + error.message, 'error');
+        })
+        .getAssessmentStudents(id);
+    }
+
+    function showPeriodsModal(id, students) {
+      if (!students || students.length === 0) {
+        showToast('No students found for this assessment', 'error');
+        return;
+      }
+
+      // Group by teacher
+      var byTeacher = {};
+      students.forEach(function(s) {
+        if (!byTeacher[s.teacher]) byTeacher[s.teacher] = [];
+        byTeacher[s.teacher].push(s);
+      });
+
+      var teacherHtml = '';
+      Object.keys(byTeacher).sort().forEach(function(teacher) {
+        var teacherStudents = byTeacher[teacher];
+        var escapedTeacher = teacher.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+        teacherHtml +=
+          '<div class="teacher-group" style="margin-bottom: 16px;">' +
+            '<div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: var(--bg-surface-light); border-radius: 6px; cursor: pointer; margin-bottom: 8px;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === \'none\' ? \'block\' : \'none\'">' +
+              '<span class="material-icons" style="font-size: 18px; color: var(--primary);">person</span>' +
+              '<strong>' + teacher + '</strong>' +
+              '<span style="color: var(--text-muted); font-size: 12px; margin-left: 4px;">' + teacherStudents.length + ' students</span>' +
+              '<span class="material-icons" style="margin-left: auto; font-size: 18px;">expand_more</span>' +
+            '</div>' +
+            '<div style="display: block;">' +
+              '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">' +
+                '<thead><tr>' +
+                  '<th style="width: 40px; padding: 8px; text-align: left;"><input type="checkbox" onchange="togglePeriodCheckboxes(this, \'' + escapedTeacher + '\')"></th>' +
+                  '<th style="padding: 8px; text-align: left;">Student</th>' +
+                  '<th style="width: 150px; padding: 8px; text-align: left;">Period</th>' +
+                '</tr></thead>' +
+                '<tbody>';
+
+        teacherStudents.forEach(function(s) {
+          teacherHtml +=
+                  '<tr>' +
+                    '<td style="padding: 6px 8px;"><input type="checkbox" class="period-cb" data-teacher="' + teacher.replace(/"/g, '&quot;') + '" data-id="' + s.studentId + '"></td>' +
+                    '<td style="padding: 6px 8px;">' + s.studentName + '</td>' +
+                    '<td style="padding: 6px 8px;"><input type="text" class="form-input period-val" data-id="' + s.studentId + '" value="' + (s.period || '').replace(/"/g, '&quot;') + '" placeholder="Enter period" style="padding: 6px 10px; font-size: 13px;"></td>' +
+                  '</tr>';
+        });
+
+        teacherHtml +=
+                '</tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>';
+      });
+
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'periodsModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 640px; max-height: 85vh; display: flex; flex-direction: column;">' +
+          '<div class="modal-header"><h2>Assign Class Periods</h2></div>' +
+          '<div style="padding: 16px 24px; display: flex; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);">' +
+            '<input type="text" id="bulkPeriod" class="form-input" placeholder="Period (e.g., Period 1, Block A)" style="flex: 1;">' +
+            '<button class="btn btn-secondary" onclick="applyBulkPeriodEdit()">Apply to Selected</button>' +
+            '<button class="btn btn-ghost" onclick="selectAllPeriodCheckboxes()">Select All</button>' +
+          '</div>' +
+          '<div class="modal-body" style="overflow-y: auto; flex: 1;">' +
+            teacherHtml +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'periodsModal\').remove()">Cancel</button>' +
+            '<button class="btn btn-primary" id="periodsSaveBtn">Save Periods</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      document.getElementById('periodsSaveBtn').addEventListener('click', function() {
+        savePeriodAssignments(id);
+      });
+    }
+
+    function togglePeriodCheckboxes(master, teacher) {
+      var checkboxes = document.querySelectorAll('.period-cb[data-teacher="' + teacher + '"]');
+      checkboxes.forEach(function(cb) { cb.checked = master.checked; });
+    }
+
+    function selectAllPeriodCheckboxes() {
+      var checkboxes = document.querySelectorAll('.period-cb');
+      var allChecked = Array.from(checkboxes).every(function(cb) { return cb.checked; });
+      checkboxes.forEach(function(cb) { cb.checked = !allChecked; });
+    }
+
+    function applyBulkPeriodEdit() {
+      var value = document.getElementById('bulkPeriod').value.trim();
+      if (!value) {
+        showToast('Enter a period value first', 'warning');
+        return;
+      }
+      var checked = document.querySelectorAll('.period-cb:checked');
+      if (checked.length === 0) {
+        showToast('Select students first', 'warning');
+        return;
+      }
+      checked.forEach(function(cb) {
+        var input = document.querySelector('.period-val[data-id="' + cb.dataset.id + '"]');
+        if (input) input.value = value;
+      });
+      showToast('Applied "' + value + '" to ' + checked.length + ' students', 'success');
+    }
+
+    function savePeriodAssignments(id) {
+      var inputs = document.querySelectorAll('.period-val');
+      var periodData = [];
+      inputs.forEach(function(input) {
+        periodData.push({
+          studentId: input.dataset.id,
+          period: input.value.trim()
+        });
+      });
+
+      var btn = document.getElementById('periodsSaveBtn');
+      var restore = setBtnLoading(btn, 'Saving...');
+
+      google.script.run
+        .withSuccessHandler(function() {
+          restore();
+          document.getElementById('periodsModal').remove();
+          showToast('Class periods saved', 'success');
+          loadAssessments();
+        })
+        .withFailureHandler(function(error) {
+          restore();
+          showToast('Error: ' + error.message, 'error');
+        })
+        .updateClassPeriods(id, periodData);
     }
 
     function deleteAssessment(id, name) {

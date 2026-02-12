@@ -1207,6 +1207,121 @@ function renameTeacher(assessmentId, oldName, newName) {
 }
 
 /**
+ * Updates assessment metadata (subject, assessment_type, grade_level, name).
+ * Used from the Edit Assessment modal on the History page.
+ */
+function updateAssessmentMetadata(assessmentId, metadata) {
+  const user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('Not authenticated');
+
+  const normalId = String(assessmentId).trim();
+  const ss = getOrCreateDatabase();
+  const sheet = ss.getSheetByName(CONFIG.sheets.assessments);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  var idCol = headers.indexOf('id');
+  if (idCol === -1) idCol = 0;
+  var nameCol = headers.indexOf('name');
+  var subjectCol = headers.indexOf('subject');
+  var typeCol = headers.indexOf('assessment_type');
+  var gradeCol = headers.indexOf('grade_level');
+  var emailCol = headers.indexOf('teacher_email');
+  var schoolCol = headers.indexOf('school');
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol] != null && String(data[i][idCol]).trim() === normalId) {
+      // Check permission
+      if (user.role === CONFIG.roles.TEACHER && emailCol !== -1 &&
+          data[i][emailCol] !== user.email) {
+        throw new Error('You can only edit your own assessments');
+      }
+      if (user.role === CONFIG.roles.SCHOOL_ADMIN && schoolCol !== -1 &&
+          data[i][schoolCol] !== user.school) {
+        throw new Error('You can only edit assessments from your school');
+      }
+
+      // Update fields that were provided
+      if (metadata.name !== undefined && metadata.name.trim() && nameCol !== -1) {
+        sheet.getRange(i + 1, nameCol + 1).setValue(metadata.name.trim());
+      }
+      if (metadata.subject !== undefined && subjectCol !== -1) {
+        sheet.getRange(i + 1, subjectCol + 1).setValue(metadata.subject);
+      }
+      if (metadata.assessmentType !== undefined && typeCol !== -1) {
+        sheet.getRange(i + 1, typeCol + 1).setValue(metadata.assessmentType);
+      }
+      if (metadata.gradeLevel !== undefined && gradeCol !== -1) {
+        sheet.getRange(i + 1, gradeCol + 1).setValue(metadata.gradeLevel);
+      }
+
+      return { success: true };
+    }
+  }
+  throw new Error('Assessment not found');
+}
+
+/**
+ * Gets student list with current period assignments for an assessment.
+ * Used for the Assign Periods modal on the History page.
+ */
+function getAssessmentStudents(assessmentId) {
+  const user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('Not authenticated');
+
+  const normalId = String(assessmentId).trim();
+  const ss = getOrCreateDatabase();
+
+  // Verify assessment exists and check permissions
+  const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
+  const assessmentData = assessmentSheet.getDataRange().getValues();
+  const assessmentHeaders = assessmentData[0];
+  var idCol = assessmentHeaders.indexOf('id');
+  if (idCol === -1) idCol = 0;
+  var emailCol = assessmentHeaders.indexOf('teacher_email');
+  var schoolCol = assessmentHeaders.indexOf('school');
+
+  var found = false;
+  for (var i = 1; i < assessmentData.length; i++) {
+    if (assessmentData[i][idCol] != null && String(assessmentData[i][idCol]).trim() === normalId) {
+      if (user.role === CONFIG.roles.TEACHER && emailCol !== -1 &&
+          assessmentData[i][emailCol] !== user.email) {
+        throw new Error('Access denied');
+      }
+      if (user.role === CONFIG.roles.SCHOOL_ADMIN && schoolCol !== -1 &&
+          assessmentData[i][schoolCol] !== user.school) {
+        throw new Error('Access denied');
+      }
+      found = true;
+      break;
+    }
+  }
+  if (!found) throw new Error('Assessment not found');
+
+  // Get students from ClassPeriods sheet
+  const periodSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
+  if (!periodSheet || periodSheet.getLastRow() < 2) {
+    return [];
+  }
+
+  const periodData = periodSheet.getDataRange().getValues();
+  var students = [];
+
+  for (var i = 1; i < periodData.length; i++) {
+    if (periodData[i][0] != null && String(periodData[i][0]).trim() === normalId) {
+      students.push({
+        studentId: periodData[i][1],
+        studentName: periodData[i][2],
+        teacher: periodData[i][3],
+        period: periodData[i][4] || ''
+      });
+    }
+  }
+
+  return students;
+}
+
+/**
  * Gets configuration for client-side use
  */
 function getClientConfig() {

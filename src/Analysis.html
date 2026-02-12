@@ -765,7 +765,12 @@
       
       // Display small groups
       displaySmallGroups();
-      
+
+      // Display heatmaps if available
+      if (analysisResults.heatmaps) {
+        showHeatmap('student');
+      }
+
       // Display district summary
       if (userRole !== 'teacher' && analysisResults.districtSummary) {
         displayDistrictSummary();

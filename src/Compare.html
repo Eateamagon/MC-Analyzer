@@ -157,6 +157,41 @@
     }
     .compare-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
     .compare-tab.active { background: var(--primary); color: white; }
+
+    /* Sortable table headers */
+    .compare-table th.sortable {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 20px;
+    }
+    .compare-table th.sortable:hover {
+      color: var(--primary);
+    }
+    .compare-table th.sortable::after {
+      content: '\2195';
+      position: absolute;
+      right: 4px;
+      font-size: 12px;
+      opacity: 0.4;
+    }
+    .compare-table th.sortable.sort-asc::after {
+      content: '\2191';
+      opacity: 1;
+      color: var(--primary);
+    }
+    .compare-table th.sortable.sort-desc::after {
+      content: '\2193';
+      opacity: 1;
+      color: var(--primary);
+    }
+
+    /* Export button row */
+    .export-bar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
   </style>
 </head>
 <body>
@@ -189,8 +224,17 @@
       <a href="<?= scriptUrl ?>?page=admin" class="nav-item">
         <span class="material-icons">admin_panel_settings</span><span>Admin Panel</span>
       </a>
+      <a href="#" class="nav-item" onclick="showDistrictSummary()">
+        <span class="material-icons">assessment</span><span>District Summary</span>
+      </a>
     </div>
     <? } ?>
+    <div class="nav-section">
+      <div class="nav-label">SETTINGS</div>
+      <a href="#" class="nav-item" onclick="openSettings()">
+        <span class="material-icons">tune</span><span>Preferences</span>
+      </a>
+    </div>
     <div class="sidebar-footer">
       <div class="user-info">
         <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
@@ -243,11 +287,18 @@
 
       <!-- Results Panel -->
       <div id="resultsPanel" class="results-section">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
           <button class="btn btn-ghost" onclick="backToSelection()">
             <span class="material-icons">arrow_back</span> Choose Different Assessments
           </button>
-          <h2 id="comparisonTitle" style="font-size: 18px;"></h2>
+          <div class="export-bar">
+            <button class="btn btn-secondary" onclick="exportCompareCSV()">
+              <span class="material-icons">download</span> CSV
+            </button>
+            <button class="btn btn-secondary" onclick="exportComparePDF()">
+              <span class="material-icons">picture_as_pdf</span> PDF
+            </button>
+          </div>
         </div>
 
         <!-- Overall summary -->
@@ -298,6 +349,52 @@
       </div>
     </div>
   </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" onclick="closeSettings()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Analysis Thresholds</h3>
+          <div class="form-group">
+            <label>Growth Threshold (%)</label>
+            <input type="number" id="settingGrowth" class="form-input" min="0" max="100" value="50">
+            <span class="form-hint">Scores below this are marked as "Needs Growth"</span>
+          </div>
+          <div class="form-group">
+            <label>Strength Threshold (%)</label>
+            <input type="number" id="settingStrength" class="form-input" min="0" max="100" value="75">
+            <span class="form-hint">Scores at or above this are marked as "Strength"</span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>Small Group Settings</h3>
+          <div class="form-group">
+            <label>Weakness Threshold (%)</label>
+            <input type="number" id="settingSgThreshold" class="form-input" min="0" max="100" value="70">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min Group Size</label>
+              <input type="number" id="settingSgMin" class="form-input" min="1" max="10" value="2">
+            </div>
+            <div class="form-group">
+              <label>Max Group Size</label>
+              <input type="number" id="settingSgMax" class="form-input" min="1" max="20" value="5">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
 
   <?!= include('Scripts'); ?>
 
@@ -411,9 +508,108 @@
       document.getElementById('comparisonTitle').textContent = '';
       document.getElementById('matchCount').textContent = r.matchedStudentCount;
 
-      // Teacher comparisons
-      var tHtml = '';
-      r.teacherComparisons.forEach(function(tc) {
+      // Teacher comparisons (sortable)
+      renderTeacherComparisons();
+
+      // Student comparisons
+      renderStudentCompareTable();
+    }
+
+    // Current sort state for the student table
+    var studentSortCol = 'delta';
+    var studentSortDir = 'asc'; // default: worst delta first
+
+    function renderStudentCompareTable() {
+      var r = comparisonResults;
+      if (!r || r.studentComparisons.length === 0) {
+        document.getElementById('studentCompareTable').innerHTML =
+          '<div class="empty-state"><p>No matching students found between assessments (matched by student ID)</p></div>';
+        return;
+      }
+
+      // Sort the student comparisons
+      var sorted = r.studentComparisons.slice().sort(function(a, b) {
+        var va, vb;
+        switch (studentSortCol) {
+          case 'name': va = a.name.toLowerCase(); vb = b.name.toLowerCase(); return studentSortDir === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (vb < va ? -1 : vb > va ? 1 : 0);
+          case 'teacher': va = a.teacher.toLowerCase(); vb = b.teacher.toLowerCase(); return studentSortDir === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (vb < va ? -1 : vb > va ? 1 : 0);
+          case 'pctA': return studentSortDir === 'asc' ? a.pctA - b.pctA : b.pctA - a.pctA;
+          case 'pctB': return studentSortDir === 'asc' ? a.pctB - b.pctB : b.pctB - a.pctB;
+          case 'delta': default: return studentSortDir === 'asc' ? a.delta - b.delta : b.delta - a.delta;
+        }
+      });
+
+      var sHtml = '<table class="compare-table"><thead><tr>' +
+        '<th class="sortable' + (studentSortCol === 'name' ? ' sort-' + studentSortDir : '') + '" onclick="sortStudentTable(\'name\')">Student</th>' +
+        '<th class="sortable' + (studentSortCol === 'teacher' ? ' sort-' + studentSortDir : '') + '" onclick="sortStudentTable(\'teacher\')">Teacher</th>' +
+        '<th class="sortable' + (studentSortCol === 'pctA' ? ' sort-' + studentSortDir : '') + '" onclick="sortStudentTable(\'pctA\')">' + r.assessmentA.name + '</th>' +
+        '<th class="sortable' + (studentSortCol === 'pctB' ? ' sort-' + studentSortDir : '') + '" onclick="sortStudentTable(\'pctB\')">' + r.assessmentB.name + '</th>' +
+        '<th class="sortable' + (studentSortCol === 'delta' ? ' sort-' + studentSortDir : '') + '" onclick="sortStudentTable(\'delta\')">Change</th></tr></thead><tbody>';
+
+      sorted.forEach(function(sc) {
+        var dClass = sc.delta > 0 ? 'positive' : sc.delta < 0 ? 'negative' : 'neutral';
+        sHtml += '<tr>' +
+          '<td><strong>' + sc.name + '</strong></td>' +
+          '<td>' + sc.teacher + '</td>' +
+          '<td>' + sc.pctA + '%</td>' +
+          '<td>' + sc.pctB + '%</td>' +
+          '<td><span class="delta-chip ' + dClass + '">' + (sc.delta > 0 ? '+' : '') + sc.delta + '%</span></td>' +
+        '</tr>';
+      });
+
+      sHtml += '</tbody></table>';
+      document.getElementById('studentCompareTable').innerHTML = sHtml;
+    }
+
+    function sortStudentTable(col) {
+      if (studentSortCol === col) {
+        studentSortDir = studentSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        studentSortCol = col;
+        studentSortDir = (col === 'name' || col === 'teacher') ? 'asc' : 'desc';
+      }
+      renderStudentCompareTable();
+    }
+
+    // Current sort state for teacher cards
+    var teacherSortCol = 'teacher';
+    var teacherSortDir = 'asc';
+
+    function sortTeacherCards(col) {
+      if (teacherSortCol === col) {
+        teacherSortDir = teacherSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        teacherSortCol = col;
+        teacherSortDir = (col === 'teacher') ? 'asc' : 'desc';
+      }
+      renderTeacherComparisons();
+    }
+
+    function renderTeacherComparisons() {
+      var r = comparisonResults;
+      if (!r) return;
+
+      var sorted = r.teacherComparisons.slice().sort(function(a, b) {
+        var va, vb;
+        switch (teacherSortCol) {
+          case 'teacher': va = a.teacher.toLowerCase(); vb = b.teacher.toLowerCase(); return teacherSortDir === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (vb < va ? -1 : vb > va ? 1 : 0);
+          case 'avgA': return teacherSortDir === 'asc' ? (a.avgA || 0) - (b.avgA || 0) : (b.avgA || 0) - (a.avgA || 0);
+          case 'avgB': return teacherSortDir === 'asc' ? (a.avgB || 0) - (b.avgB || 0) : (b.avgB || 0) - (a.avgB || 0);
+          case 'delta': default: return teacherSortDir === 'asc' ? (a.avgDelta || 0) - (b.avgDelta || 0) : (b.avgDelta || 0) - (a.avgDelta || 0);
+        }
+      });
+
+      // Render sort bar + teacher cards
+      var sortBar = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">' +
+        '<span style="font-size:13px;color:var(--text-muted);">Sort by:</span>' +
+        '<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="sortTeacherCards(\'teacher\')">Name' + (teacherSortCol === 'teacher' ? (teacherSortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '') + '</button>' +
+        '<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="sortTeacherCards(\'avgA\')">Assessment A' + (teacherSortCol === 'avgA' ? (teacherSortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '') + '</button>' +
+        '<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="sortTeacherCards(\'avgB\')">Assessment B' + (teacherSortCol === 'avgB' ? (teacherSortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '') + '</button>' +
+        '<button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;" onclick="sortTeacherCards(\'delta\')">Change' + (teacherSortCol === 'delta' ? (teacherSortDir === 'asc' ? ' &#8593;' : ' &#8595;') : '') + '</button>' +
+      '</div>';
+
+      var tHtml = sortBar;
+      sorted.forEach(function(tc) {
         var dClass = tc.avgDelta > 0 ? 'positive' : tc.avgDelta < 0 ? 'negative' : 'neutral';
         tHtml += '<div class="teacher-compare-card">' +
           '<div class="teacher-compare-header" onclick="toggleCompareBody(this)">' +
@@ -443,32 +639,6 @@
         tHtml += '</div></div></div>';
       });
       document.getElementById('teacherCompareList').innerHTML = tHtml || '<div class="empty-state"><p>No teacher data to compare</p></div>';
-
-      // Student comparisons
-      if (r.studentComparisons.length > 0) {
-        var sHtml = '<table class="compare-table"><thead><tr>' +
-          '<th>Student</th><th>Teacher</th>' +
-          '<th>' + r.assessmentA.name + '</th>' +
-          '<th>' + r.assessmentB.name + '</th>' +
-          '<th>Change</th></tr></thead><tbody>';
-
-        r.studentComparisons.forEach(function(sc) {
-          var dClass = sc.delta > 0 ? 'positive' : sc.delta < 0 ? 'negative' : 'neutral';
-          sHtml += '<tr>' +
-            '<td><strong>' + sc.name + '</strong></td>' +
-            '<td>' + sc.teacher + '</td>' +
-            '<td>' + sc.pctA + '%</td>' +
-            '<td>' + sc.pctB + '%</td>' +
-            '<td><span class="delta-chip ' + dClass + '">' + (sc.delta > 0 ? '+' : '') + sc.delta + '%</span></td>' +
-          '</tr>';
-        });
-
-        sHtml += '</tbody></table>';
-        document.getElementById('studentCompareTable').innerHTML = sHtml;
-      } else {
-        document.getElementById('studentCompareTable').innerHTML =
-          '<div class="empty-state"><p>No matching students found between assessments (matched by student ID)</p></div>';
-      }
     }
 
     function backToSelection() {
@@ -488,6 +658,119 @@
       event.target.closest('.compare-tab').classList.add('active');
       document.getElementById('teachersContent').style.display = tab === 'teachers' ? 'block' : 'none';
       document.getElementById('studentsContent').style.display = tab === 'students' ? 'block' : 'none';
+    }
+
+    // ── Settings Functions ─────────────────────────────────────────────
+    function openSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+      var user = <?= JSON.stringify(user) ?>;
+      if (user.settings) {
+        document.getElementById('settingGrowth').value = user.settings.growth || 50;
+        document.getElementById('settingStrength').value = user.settings.strength || 75;
+        document.getElementById('settingSgThreshold').value = user.settings.sgThreshold || 70;
+        document.getElementById('settingSgMin').value = user.settings.sgMin || 2;
+        document.getElementById('settingSgMax').value = user.settings.sgMax || 5;
+      }
+    }
+    function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+    function saveSettings() {
+      var settings = {
+        growth: parseInt(document.getElementById('settingGrowth').value),
+        strength: parseInt(document.getElementById('settingStrength').value),
+        sgThreshold: parseInt(document.getElementById('settingSgThreshold').value),
+        sgMin: parseInt(document.getElementById('settingSgMin').value),
+        sgMax: parseInt(document.getElementById('settingSgMax').value)
+      };
+      google.script.run
+        .withSuccessHandler(function() { showToast('Settings saved!', 'success'); closeSettings(); })
+        .withFailureHandler(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .updateUserSettings(settings);
+    }
+    function showDistrictSummary() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          if (assessments && assessments.length > 0) {
+            var target = assessments.find(function(a) { return a.status === 'ready'; }) || assessments[0];
+            window.location.href = SCRIPT_URL + '?page=analysis&id=' + target.id + '&tab=district';
+          } else {
+            showToast('No assessments available. Upload data first.', 'info');
+          }
+        })
+        .withFailureHandler(function() { showToast('Error loading assessments', 'error'); })
+        .getAssessmentList();
+    }
+
+    // ── Export Functions ────────────────────────────────────────────────
+    function exportCompareCSV() {
+      if (!comparisonResults) return;
+      var r = comparisonResults;
+      var rows = [];
+
+      // Overall summary
+      rows.push(['Comparison Summary']);
+      rows.push(['Assessment A', r.assessmentA.name, 'Average', r.assessmentA.average + '%', 'Students', r.assessmentA.studentCount]);
+      rows.push(['Assessment B', r.assessmentB.name, 'Average', r.assessmentB.average + '%', 'Students', r.assessmentB.studentCount]);
+      rows.push(['Overall Change', (r.overallDelta > 0 ? '+' : '') + r.overallDelta + '%']);
+      rows.push([]);
+
+      // Teacher comparisons
+      rows.push(['Teacher Comparisons']);
+      rows.push(['Teacher', 'Students A', 'Students B', 'Avg A', 'Avg B', 'Change']);
+      r.teacherComparisons.forEach(function(tc) {
+        rows.push([tc.teacher, tc.studentsA, tc.studentsB,
+          tc.avgA !== null ? tc.avgA + '%' : '-',
+          tc.avgB !== null ? tc.avgB + '%' : '-',
+          tc.avgDelta !== null ? (tc.avgDelta > 0 ? '+' : '') + tc.avgDelta + '%' : '-']);
+      });
+      rows.push([]);
+
+      // Student comparisons
+      rows.push(['Student Comparisons']);
+      rows.push(['Student', 'Teacher', r.assessmentA.name, r.assessmentB.name, 'Change']);
+      r.studentComparisons.forEach(function(sc) {
+        rows.push([sc.name, sc.teacher, sc.pctA + '%', sc.pctB + '%', (sc.delta > 0 ? '+' : '') + sc.delta + '%']);
+      });
+
+      // Build CSV string
+      var csv = rows.map(function(row) {
+        return row.map(function(cell) {
+          var s = String(cell == null ? '' : cell);
+          if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+            return '"' + s.replace(/"/g, '""') + '"';
+          }
+          return s;
+        }).join(',');
+      }).join('\r\n');
+
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'Comparison_' + r.assessmentA.name.replace(/[^a-zA-Z0-9]/g, '_') + '_vs_' + r.assessmentB.name.replace(/[^a-zA-Z0-9]/g, '_') + '.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      showToast('CSV downloaded!', 'success');
+    }
+
+    function exportComparePDF() {
+      if (!comparisonResults) return;
+      var btn = event ? event.target.closest('.btn') : null;
+      var restore = btn ? setBtnLoading(btn, 'Generating...') : function(){};
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          restore();
+          if (result.success) {
+            downloadBlob(result.data, result.filename, result.mimeType);
+            showToast('PDF downloaded!', 'success');
+          }
+        })
+        .withFailureHandler(function(error) {
+          restore();
+          showToast('PDF export failed: ' + error.message, 'error');
+        })
+        .exportComparisonPDF(selectedA, selectedB);
     }
   </script>
 </body>

@@ -389,6 +389,80 @@ function createAllTeacherFiles(assessmentId) {
 }
 
 /**
+ * Exports comparison results as a PDF.
+ * Creates a temporary spreadsheet with summary, teacher, and student sheets.
+ */
+function exportComparisonPDF(assessmentIdA, assessmentIdB) {
+  var comparison = compareAssessments(assessmentIdA, assessmentIdB);
+  var tempSS = SpreadsheetApp.create('temp_compare_pdf_' + Date.now());
+
+  try {
+    // Summary sheet
+    var sh = tempSS.getSheets()[0];
+    sh.setName('Summary');
+    sh.getRange('A1:F1').merge()
+      .setValue('Assessment Comparison')
+      .setBackground('#7C3AED').setFontColor('white').setFontWeight('bold')
+      .setHorizontalAlignment('center').setFontSize(14);
+    sh.getRange('A3').setValue('Assessment A:');
+    sh.getRange('B3').setValue(comparison.assessmentA.name);
+    sh.getRange('C3').setValue('Average: ' + comparison.assessmentA.average + '%');
+    sh.getRange('D3').setValue(comparison.assessmentA.studentCount + ' students');
+    sh.getRange('A4').setValue('Assessment B:');
+    sh.getRange('B4').setValue(comparison.assessmentB.name);
+    sh.getRange('C4').setValue('Average: ' + comparison.assessmentB.average + '%');
+    sh.getRange('D4').setValue(comparison.assessmentB.studentCount + ' students');
+    sh.getRange('A5').setValue('Overall Change:');
+    sh.getRange('B5').setValue((comparison.overallDelta > 0 ? '+' : '') + comparison.overallDelta + '%')
+      .setFontWeight('bold');
+
+    // Teacher sheet
+    var tSh = tempSS.insertSheet('By Teacher');
+    tSh.getRange(1, 1, 1, 6)
+      .setValues([['Teacher', 'Students A', 'Students B', 'Avg A', 'Avg B', 'Change']])
+      .setFontWeight('bold').setBackground('#e8f0fe');
+    comparison.teacherComparisons.forEach(function(tc, idx) {
+      tSh.getRange(2 + idx, 1, 1, 6).setValues([[
+        tc.teacher, tc.studentsA, tc.studentsB,
+        tc.avgA !== null ? tc.avgA + '%' : '-',
+        tc.avgB !== null ? tc.avgB + '%' : '-',
+        tc.avgDelta !== null ? (tc.avgDelta > 0 ? '+' : '') + tc.avgDelta + '%' : '-'
+      ]]);
+    });
+    tSh.autoResizeColumns(1, 6);
+
+    // Student sheet
+    if (comparison.studentComparisons.length > 0) {
+      var sSh = tempSS.insertSheet('By Student');
+      sSh.getRange(1, 1, 1, 5)
+        .setValues([['Student', 'Teacher', comparison.assessmentA.name, comparison.assessmentB.name, 'Change']])
+        .setFontWeight('bold').setBackground('#e8f0fe');
+      comparison.studentComparisons.forEach(function(sc, idx) {
+        sSh.getRange(2 + idx, 1, 1, 5).setValues([[
+          sc.name, sc.teacher, sc.pctA + '%', sc.pctB + '%',
+          (sc.delta > 0 ? '+' : '') + sc.delta + '%'
+        ]]);
+      });
+      sSh.autoResizeColumns(1, 5);
+    }
+
+    sh.autoResizeColumns(1, 6);
+
+    var url = 'https://docs.google.com/spreadsheets/d/' + tempSS.getId() + '/export?format=pdf&portrait=false&size=letter&fitw=true';
+    var token = ScriptApp.getOAuthToken();
+    var response = UrlFetchApp.fetch(url, { headers: { 'Authorization': 'Bearer ' + token } });
+    var blob = response.getBlob();
+    var filename = 'Comparison_' + comparison.assessmentA.name + '_vs_' + comparison.assessmentB.name + '.pdf';
+    blob.setName(filename.replace(/[^a-zA-Z0-9._\-]/g, '_'));
+    var base64 = Utilities.base64Encode(blob.getBytes());
+
+    return { success: true, data: base64, filename: blob.getName(), mimeType: 'application/pdf' };
+  } finally {
+    DriveApp.getFileById(tempSS.getId()).setTrashed(true);
+  }
+}
+
+/**
  * Generates PDF report
  */
 function generatePDFReport(assessmentId, options) {

@@ -37,7 +37,8 @@ function runAnalysis(assessmentId, options) {
 
   // Get assessment data
   const assessmentData = getAssessmentData(assessmentId);
-  const { assessment, solRow, header, students, periodMap } = assessmentData;
+  const { assessment, solRow, header, periodMap } = assessmentData;
+  var students = assessmentData.students;
 
   // Get user settings
   const settings = user.settings || CONFIG.defaults;
@@ -65,9 +66,28 @@ function runAnalysis(assessmentId, options) {
     teacherSummaries: []
   };
   
-  // Get unique teachers
-  const teachers = [...new Set(students.map(r => r[teacherCol]))].sort();
-  
+  // Filter out students with no valid test data (all scores missing/empty)
+  const validStudents = students.filter(function(r) {
+    // Check if student has at least one answered question (score of 0 or 1)
+    return questions.some(function(q) {
+      var sc = r[q.scoreColIndex];
+      return sc === 1 || sc === 0 || sc === '1' || sc === '0';
+    });
+  });
+
+  Logger.log('Filtered students: ' + students.length + ' -> ' + validStudents.length + ' (removed ' + (students.length - validStudents.length) + ' with no test data)');
+  students = validStudents;
+
+  // Get unique teachers, then filter out teachers with zero students
+  const teacherCounts = {};
+  students.forEach(function(r) {
+    var t = r[teacherCol];
+    teacherCounts[t] = (teacherCounts[t] || 0) + 1;
+  });
+  const teachers = Object.keys(teacherCounts).filter(function(t) {
+    return teacherCounts[t] > 0;
+  }).sort();
+
   // Run Item Analysis
   if (options.itemAnalysis) {
     results.itemAnalysis = {};
@@ -347,7 +367,8 @@ function formGroups(list, settings) {
  */
 function generateStudentHeatmap(students, questions, teacherCol, firstNameCol, lastNameCol) {
   const data = [];
-  
+
+  // Students already filtered by runAnalysis, but guard against direct calls
   students.forEach(r => {
     const teacher = r[teacherCol];
     const name = `${r[firstNameCol] || ''} ${r[lastNameCol] || ''}`.trim();
@@ -510,13 +531,16 @@ function generateTeacherSummary(teacher, students, questions, firstNameCol, last
  * Generates District Summary
  */
 function generateDistrictSummary(teacherSummaries) {
-  const summary = teacherSummaries.map(ts => ({
-    teacher: ts.teacher,
-    studentCount: ts.studentCount,
-    average: ts.average,
-    bestSOL: ts.bestSOL,
-    worstSOL: ts.worstSOL
-  })).sort((a, b) => b.average - a.average);
+  // Filter out teachers with zero students
+  const summary = teacherSummaries
+    .filter(ts => ts.studentCount > 0)
+    .map(ts => ({
+      teacher: ts.teacher,
+      studentCount: ts.studentCount,
+      average: ts.average,
+      bestSOL: ts.bestSOL,
+      worstSOL: ts.worstSOL
+    })).sort((a, b) => b.average - a.average);
   
   const totalStudents = summary.reduce((acc, s) => acc + s.studentCount, 0);
   const overallAverage = summary.length > 0 
@@ -691,7 +715,15 @@ function generateMultiSourceSmallGroups(assessmentIds) {
     var lastNameCol = findColIndex(header, 'last_name');
     var studentIdCol = findColIndex(header, 'student_id');
 
-    students.forEach(function(r) {
+    // Filter out students with no valid test data
+    var validStudents = students.filter(function(r) {
+      return questions.some(function(q) {
+        var sc = r[q.scoreColIndex];
+        return sc === 1 || sc === 0 || sc === '1' || sc === '0';
+      });
+    });
+
+    validStudents.forEach(function(r) {
       var sid = r[studentIdCol];
       if (!sid) return;
       var sKey = String(sid).trim();
@@ -798,6 +830,16 @@ function compareAssessments(assessmentIdA, assessmentIdB) {
 
   var questionsA = parseQuestions(dataA.header, dataA.solRow);
   var questionsB = parseQuestions(dataB.header, dataB.solRow);
+
+  // Filter out students with no valid test data
+  function hasValidScores(row, questions) {
+    return questions.some(function(q) {
+      var sc = row[q.scoreColIndex];
+      return sc === 1 || sc === 0 || sc === '1' || sc === '0';
+    });
+  }
+  dataA.students = dataA.students.filter(function(r) { return hasValidScores(r, questionsA); });
+  dataB.students = dataB.students.filter(function(r) { return hasValidScores(r, questionsB); });
 
   var teacherColA = findColIndex(dataA.header, 'teacher');
   var teacherColB = findColIndex(dataB.header, 'teacher');

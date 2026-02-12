@@ -209,6 +209,22 @@
       gap: 16px;
     }
 
+    .item-cards.compact-mode .item-card {
+      max-height: 200px;
+      overflow: hidden;
+      position: relative;
+    }
+    .item-cards.compact-mode .item-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: linear-gradient(transparent, var(--bg-surface));
+      pointer-events: none;
+    }
+
     .item-card {
       background: var(--bg-surface);
       border-radius: var(--border-radius);
@@ -239,6 +255,10 @@
       background: var(--bg-surface-light);
       padding: 4px 10px;
       border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
     }
 
     .item-card-body {
@@ -480,9 +500,21 @@
         <span class="material-icons">admin_panel_settings</span>
         <span>Admin Panel</span>
       </a>
+      <a href="#" class="nav-item" onclick="showDistrictTab()">
+        <span class="material-icons">assessment</span>
+        <span>District Summary</span>
+      </a>
     </div>
     <? } ?>
-    
+
+    <div class="nav-section">
+      <div class="nav-label">SETTINGS</div>
+      <a href="#" class="nav-item" onclick="openSettingsModal()">
+        <span class="material-icons">tune</span>
+        <span>Preferences</span>
+      </a>
+    </div>
+
     <div class="sidebar-footer">
       <div class="user-info">
         <div class="user-avatar"><?= user && user.name ? user.name.charAt(0).toUpperCase() : (user && user.email ? user.email.charAt(0).toUpperCase() : 'U') ?></div>
@@ -607,10 +639,22 @@
     </div>
 
     <div class="tab-content" id="itemsTab">
-      <div class="teacher-filter">
-        <select id="itemTeacherFilter" class="form-input" onchange="filterItemsByTeacher()">
-          <option value="">Select Teacher</option>
-        </select>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+        <div class="teacher-filter" style="margin-bottom:0;">
+          <select id="itemTeacherFilter" class="form-input" onchange="filterItemsByTeacher()">
+            <option value="">Select Teacher</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <label class="checkbox-wrapper" title="Truncate long item cards to save vertical space">
+            <input type="checkbox" id="optCompactItems" onchange="toggleCompactItems()">
+            <span style="font-size:13px;">Compact View</span>
+          </label>
+          <label class="checkbox-wrapper" title="Hide distractor distribution bars">
+            <input type="checkbox" id="optHideDistractors" onchange="filterItemsByTeacher()">
+            <span style="font-size:13px;">Hide Distractors</span>
+          </label>
+        </div>
       </div>
       <div class="card">
         <div class="card-body">
@@ -704,6 +748,52 @@
     <? } ?>
   </main>
 
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Analysis Thresholds</h3>
+          <div class="form-group">
+            <label>Growth Threshold (%)</label>
+            <input type="number" id="settingGrowth" class="form-input" min="0" max="100" value="50">
+            <span class="form-hint">Scores below this are marked as "Needs Growth"</span>
+          </div>
+          <div class="form-group">
+            <label>Strength Threshold (%)</label>
+            <input type="number" id="settingStrength" class="form-input" min="0" max="100" value="75">
+            <span class="form-hint">Scores at or above this are marked as "Strength"</span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>Small Group Settings</h3>
+          <div class="form-group">
+            <label>Weakness Threshold (%)</label>
+            <input type="number" id="settingSgThreshold" class="form-input" min="0" max="100" value="70">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min Group Size</label>
+              <input type="number" id="settingSgMin" class="form-input" min="1" max="10" value="2">
+            </div>
+            <div class="form-group">
+              <label>Max Group Size</label>
+              <input type="number" id="settingSgMax" class="form-input" min="1" max="20" value="5">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeSettingsModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettingsModal()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
   <?!= include('Scripts'); ?>
   
   <script>
@@ -711,7 +801,8 @@
     var SCRIPT_URL = '<?= scriptUrl ?>';
     var ASSESSMENT_ID = '<?= assessmentId ?>';
     var USER_ROLE = '<?= user.role ?>';
-    
+    var URL_PARAMS = <?= JSON.stringify(urlParams || {}) ?>;
+
     var currentAssessmentId = ASSESSMENT_ID || null;
     var analysisResults = null;
     var userRole = USER_ROLE || 'teacher';
@@ -946,6 +1037,18 @@
       // Display district summary
       if (userRole !== 'teacher' && analysisResults.districtSummary) {
         displayDistrictSummary();
+      }
+
+      // Auto-switch to a tab if specified in URL params
+      if (URL_PARAMS && URL_PARAMS.tab) {
+        var tabBtn = document.querySelector('.tab-btn[onclick*="' + URL_PARAMS.tab + '"]');
+        if (tabBtn) {
+          document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+          tabBtn.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+          var tabEl = document.getElementById(URL_PARAMS.tab + 'Tab');
+          if (tabEl) tabEl.classList.add('active');
+        }
       }
     }
     
@@ -1401,9 +1504,17 @@
       });
     }
     
+    function toggleCompactItems() {
+      var cardsEl = document.querySelector('#itemAnalysisContent .item-cards');
+      if (cardsEl) {
+        cardsEl.classList.toggle('compact-mode', document.getElementById('optCompactItems').checked);
+      }
+    }
+
     function filterItemsByTeacher() {
       const teacher = document.getElementById('itemTeacherFilter').value;
       const container = document.getElementById('itemAnalysisContent');
+      const hideDistractors = document.getElementById('optHideDistractors') && document.getElementById('optHideDistractors').checked;
 
       if (!teacher || !analysisResults.itemAnalysis || !analysisResults.itemAnalysis[teacher]) {
         container.innerHTML = '<div class="empty-state"><span class="material-icons">quiz</span><p>Select a teacher to view item analysis</p></div>';
@@ -1411,33 +1522,33 @@
       }
 
       const items = analysisResults.itemAnalysis[teacher];
-      // Total students for this teacher to calculate bar widths
-      const totalStudents = items.length > 0 && items[0].allDistractors
-        ? items[0].allDistractors.reduce(function(sum, d) { return sum + d.count; }, 0)
-        : 1;
+      const isCompact = document.getElementById('optCompactItems') && document.getElementById('optCompactItems').checked;
 
-      container.innerHTML = '<div class="item-cards">' + items.map(function(item) {
+      container.innerHTML = '<div class="item-cards' + (isCompact ? ' compact-mode' : '') + '">' + items.map(function(item) {
         var scoreColor = item.pctCorrect >= 75 ? 'var(--color-strength)' :
                          item.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
         var totalResp = item.allDistractors ? item.allDistractors.reduce(function(s, d) { return s + d.count; }, 0) : 0;
 
-        var distractorBars = (item.allDistractors || []).map(function(d) {
-          var pct = totalResp > 0 ? Math.round(d.count / totalResp * 100) : 0;
-          var isCorrect = d.answer === item.correctAnswer;
-          return '<div class="distractor-bar-row">' +
-            '<span class="distractor-answer' + (isCorrect ? ' correct' : '') + '">' + d.answer + '</span>' +
-            '<div class="distractor-bar-track"><div class="distractor-bar-fill' + (isCorrect ? ' correct-fill' : '') + '" style="width:' + pct + '%;"></div></div>' +
-            '<span class="distractor-count">' + d.count + '</span>' +
-          '</div>';
-        }).join('');
+        var distractorBars = '';
+        if (!hideDistractors) {
+          distractorBars = (item.allDistractors || []).map(function(d) {
+            var pct = totalResp > 0 ? Math.round(d.count / totalResp * 100) : 0;
+            var isCorrect = d.answer === item.correctAnswer;
+            return '<div class="distractor-bar-row">' +
+              '<span class="distractor-answer' + (isCorrect ? ' correct' : '') + '">' + d.answer + '</span>' +
+              '<div class="distractor-bar-track"><div class="distractor-bar-fill' + (isCorrect ? ' correct-fill' : '') + '" style="width:' + pct + '%;"></div></div>' +
+              '<span class="distractor-count">' + d.count + '</span>' +
+            '</div>';
+          }).join('');
+        }
 
         return '<div class="item-card' + (item.reviewFlag ? ' flagged' : '') + '">' +
           '<div class="item-card-top">' +
-            '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
               '<span class="item-card-q">' + item.question + '</span>' +
               (item.reviewFlag ? '<span class="review-flag">Needs Review</span>' : '') +
             '</div>' +
-            '<span class="item-card-sol">' + item.sol + '</span>' +
+            '<span class="item-card-sol" title="' + item.sol + '">' + item.sol + '</span>' +
           '</div>' +
           '<div class="item-card-body">' +
             '<div class="item-score-bar"><div class="item-score-fill" style="width:' + item.pctCorrect + '%;background:' + scoreColor + ';"></div></div>' +
@@ -1451,7 +1562,7 @@
                 '<div class="item-stat-value" style="color:var(--color-strength);">' + item.correctAnswer + '</div>' +
               '</div>' +
             '</div>' +
-            (item.topWrongAnswer ? '<div class="item-card-stats">' +
+            (item.topWrongAnswer && !hideDistractors ? '<div class="item-card-stats">' +
               '<div class="item-stat-box">' +
                 '<div class="item-stat-label">Top Wrong Answer</div>' +
                 '<div class="item-stat-value" style="color:var(--color-growth);">' + item.topWrongAnswer + '</div>' +
@@ -1696,6 +1807,43 @@
           showToast('Download failed: ' + error.message, 'error');
         })
         .generatePDFReport(currentAssessmentId, {});
+    }
+
+    // ── Settings Modal ─────────────────────────────────────────────────
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.add('active');
+      var user = <?= JSON.stringify(user) ?>;
+      if (user && user.settings) {
+        document.getElementById('settingGrowth').value = user.settings.growth || 50;
+        document.getElementById('settingStrength').value = user.settings.strength || 75;
+        document.getElementById('settingSgThreshold').value = user.settings.sgThreshold || 70;
+        document.getElementById('settingSgMin').value = user.settings.sgMin || 2;
+        document.getElementById('settingSgMax').value = user.settings.sgMax || 5;
+      }
+    }
+    function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('active'); }
+    function saveSettingsModal() {
+      var settings = {
+        growth: parseInt(document.getElementById('settingGrowth').value),
+        strength: parseInt(document.getElementById('settingStrength').value),
+        sgThreshold: parseInt(document.getElementById('settingSgThreshold').value),
+        sgMin: parseInt(document.getElementById('settingSgMin').value),
+        sgMax: parseInt(document.getElementById('settingSgMax').value)
+      };
+      google.script.run
+        .withSuccessHandler(function() { showToast('Settings saved!', 'success'); closeSettingsModal(); })
+        .withFailureHandler(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .updateUserSettings(settings);
+    }
+
+    function showDistrictTab() {
+      // Switch to district tab on this page
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
+      var distBtn = document.querySelector('.tab-btn[onclick*="district"]');
+      if (distBtn) distBtn.classList.add('active');
+      var distTab = document.getElementById('districtTab');
+      if (distTab) distTab.classList.add('active');
     }
 
     function createTeacherFiles() {

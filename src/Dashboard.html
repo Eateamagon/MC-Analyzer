@@ -435,7 +435,24 @@
     }
     
     function showDistrictSummary() {
-      showToast('Select an assessment to view district summary', 'info');
+      // Navigate to the most recent assessment's analysis page with district tab active
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          if (assessments && assessments.length > 0) {
+            // Find the most recent ready assessment
+            var target = assessments.find(function(a) { return a.status === 'ready'; }) || assessments[0];
+            navigateWithLoading(
+              SCRIPT_URL + '?page=analysis&id=' + target.id + '&tab=district',
+              'Loading district summary...'
+            );
+          } else {
+            showToast('No assessments available. Upload data first.', 'info');
+          }
+        })
+        .withFailureHandler(function() {
+          showToast('Error loading assessments', 'error');
+        })
+        .getAssessmentList();
     }
 
     // ── Quick Small Groups Toolkit ──────────────────────────────────

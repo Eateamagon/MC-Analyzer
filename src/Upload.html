@@ -659,6 +659,13 @@
       var btn = document.querySelector('#step2Content .btn-primary') || event.target.closest('.btn');
       var restore = btn ? setBtnLoading(btn, 'Uploading...') : function(){};
 
+      // Show full-page loading with progress message for large files
+      showLoading('Uploading assessment data...');
+      var progressNote = document.querySelector('#loadingOverlay .loading-message');
+      if (progressNote) {
+        progressNote.innerHTML = 'Uploading assessment data...<br><small style="opacity:0.7;">Large files may take a few minutes. Please do not close this tab.</small>';
+      }
+
       const metadata = {
         name: name,
         subject: document.getElementById('assessmentSubject').value,
@@ -670,6 +677,7 @@
 
       google.script.run
         .withSuccessHandler(function(result) {
+          hideLoading();
           restore();
 
           // Check if this is a duplicate
@@ -693,13 +701,42 @@
           goToStep(3);
         })
         .withFailureHandler(function(error) {
+          hideLoading();
           restore();
-          showToast('Upload failed: ' + error.message, 'error');
+
+          // If upload timed out but may have succeeded, check for it
+          var errMsg = error.message || '';
+          if (errMsg.indexOf('ScriptError') !== -1 || errMsg.indexOf('timed out') !== -1 || errMsg === '') {
+            showUploadRetryDialog(metadata.name);
+          } else {
+            showToast('Upload failed: ' + errMsg, 'error');
+          }
         })
         .processCSVUpload({
           csvContent: csvContent,
           metadata: metadata
         });
+    }
+
+    function showUploadRetryDialog(assessmentName) {
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'retryModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 450px;">' +
+          '<div class="modal-header">' +
+            '<h2><span class="material-icons" style="color: var(--color-monitor); vertical-align: middle;">hourglass_top</span> Upload May Have Completed</h2>' +
+          '</div>' +
+          '<div class="modal-body">' +
+            '<p>The upload took longer than expected. It may have completed successfully in the background.</p>' +
+            '<p style="margin-top: 12px; color: var(--text-muted);">Check your Assessment History to see if <strong>' + assessmentName + '</strong> appears.</p>' +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'retryModal\').remove()">Dismiss</button>' +
+            '<button class="btn btn-primary" onclick="window.location.href=SCRIPT_URL+\'?page=history\'">Check History</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
     }
     
     function showDuplicateDialog(result) {

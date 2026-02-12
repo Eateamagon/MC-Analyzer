@@ -911,6 +911,80 @@ function getAssessmentData(assessmentId) {
 }
 
 /**
+ * Lightweight version of getAssessmentData for the client (Analysis page).
+ * Returns only the assessment metadata — no student rows or raw data.
+ * The heavy data is only needed server-side for runAnalysis().
+ */
+function getAssessmentMetadata(assessmentId) {
+  try {
+    const user = getCurrentUser();
+    if (!user || user.isNewUser) {
+      throw new Error('User not authenticated');
+    }
+
+    if (!assessmentId) {
+      throw new Error('No assessment ID provided');
+    }
+
+    const normalId = String(assessmentId).trim();
+    const ss = getOrCreateDatabase();
+
+    const assessmentSheet = ss.getSheetByName(CONFIG.sheets.assessments);
+    if (!assessmentSheet || assessmentSheet.getLastRow() < 2) {
+      throw new Error('Assessments sheet is empty or missing');
+    }
+
+    const assessmentData = assessmentSheet.getDataRange().getValues();
+    const assessmentHeaders = assessmentData[0];
+
+    var idColIdx = assessmentHeaders.indexOf('id');
+    if (idColIdx === -1) {
+      for (var hi = 0; hi < assessmentHeaders.length; hi++) {
+        if (String(assessmentHeaders[hi]).toLowerCase().trim() === 'id') {
+          idColIdx = hi;
+          break;
+        }
+      }
+    }
+    if (idColIdx === -1) idColIdx = 0;
+
+    for (var i = 1; i < assessmentData.length; i++) {
+      var cellVal = assessmentData[i][idColIdx];
+      if (cellVal != null && String(cellVal).trim() === normalId) {
+        // Check permissions
+        var teacherEmailCol = assessmentHeaders.indexOf('teacher_email');
+        if (user.role === CONFIG.roles.TEACHER && teacherEmailCol !== -1 &&
+            assessmentData[i][teacherEmailCol] !== user.email) {
+          throw new Error('Access denied - you can only view your own assessments');
+        }
+
+        var assessment = {};
+        assessmentHeaders.forEach(function(h, idx) {
+          var val = assessmentData[i][idx];
+          if (val instanceof Date) val = val.toISOString();
+          assessment[String(h).trim()] = val;
+        });
+        return { assessment: assessment };
+      }
+    }
+
+    var rowCount = assessmentData.length - 1;
+    var sampleIds = [];
+    for (var di = 1; di < Math.min(assessmentData.length, 4); di++) {
+      sampleIds.push(String(assessmentData[di][idColIdx]).substring(0, 12));
+    }
+    throw new Error(
+      'Assessment not found. ID="' + normalId.substring(0, 12) + '..." ' +
+      '(col=' + idColIdx + ', rows=' + rowCount +
+      ', samples=[' + sampleIds.join(', ') + '...])'
+    );
+  } catch (error) {
+    Logger.log('getAssessmentMetadata error: ' + error.message);
+    throw error;
+  }
+}
+
+/**
  * Gets list of assessments for current user
  */
 function getAssessmentList() {
@@ -943,7 +1017,12 @@ function getAssessmentList() {
       
       const assessment = {};
       headers.forEach((h, idx) => {
-        assessment[h] = data[i][idx];
+        var val = data[i][idx];
+        // Convert Date objects to ISO strings for safe serialization via google.script.run
+        if (val instanceof Date) {
+          val = val.toISOString();
+        }
+        assessment[h] = val;
       });
       
       // Filter based on role

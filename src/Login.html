@@ -83,6 +83,7 @@
         0 0 100px rgba(0, 161, 75, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.05);
       animation: slideUp 0.6s ease;
+      text-align: center;
     }
 
     @keyframes slideUp {
@@ -140,75 +141,6 @@
       font-size: 14px;
     }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      margin-bottom: 8px;
-      color: var(--text-secondary);
-    }
-
-    .form-input {
-      width: 100%;
-      padding: 14px 18px;
-      background: var(--bg-surface-light);
-      border: 2px solid transparent;
-      border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 15px;
-      font-family: inherit;
-      transition: all 0.25s ease;
-    }
-
-    .form-input:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 4px var(--primary-glow);
-    }
-
-    .form-input::placeholder {
-      color: var(--text-muted);
-    }
-
-    select.form-input {
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      background-size: 18px;
-      padding-right: 44px;
-    }
-
-    .email-input-group {
-      display: flex;
-      align-items: center;
-      gap: 0;
-    }
-
-    .email-input-group input {
-      border-top-right-radius: 0;
-      border-bottom-right-radius: 0;
-      flex: 1;
-    }
-
-    .email-suffix {
-      padding: 14px 14px;
-      background: rgba(124, 58, 237, 0.15);
-      border: 2px solid transparent;
-      border-left: none;
-      border-radius: 0 12px 12px 0;
-      color: var(--primary);
-      font-size: 13px;
-      font-weight: 500;
-      white-space: nowrap;
-      line-height: 1.4;
-    }
-
     .btn {
       width: 100%;
       padding: 16px 24px;
@@ -223,6 +155,7 @@
       align-items: center;
       justify-content: center;
       gap: 10px;
+      text-decoration: none;
     }
 
     .btn-primary {
@@ -240,41 +173,6 @@
       transform: translateY(0);
     }
 
-    .btn-secondary {
-      background: var(--bg-surface-light);
-      color: var(--text-secondary);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text-primary);
-    }
-
-    .btn .material-icons {
-      font-size: 20px;
-    }
-
-    .divider {
-      display: flex;
-      align-items: center;
-      margin: 28px 0;
-      color: var(--text-muted);
-      font-size: 12px;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.1);
-    }
-
-    .divider span {
-      padding: 0 16px;
-    }
-
     .info-box {
       background: rgba(124, 58, 237, 0.1);
       border: 1px solid rgba(124, 58, 237, 0.2);
@@ -283,6 +181,8 @@
       font-size: 13px;
       color: var(--text-secondary);
       line-height: 1.5;
+      text-align: left;
+      margin-bottom: 24px;
     }
 
     .info-box .material-icons {
@@ -291,22 +191,11 @@
       margin-right: 8px;
     }
 
-    .info-box-warning {
-      background: rgba(245, 158, 11, 0.1);
-      border: 1px solid rgba(245, 158, 11, 0.2);
-    }
-
-    .info-box-warning .material-icons {
-      color: #f59e0b;
-    }
-
-    .info-box-success {
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.2);
-    }
-
-    .info-box-success .material-icons {
-      color: #10b981;
+    .sign-in-message {
+      color: var(--text-secondary);
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 28px;
     }
 
     .footer-text {
@@ -314,116 +203,6 @@
       margin-top: 24px;
       font-size: 12px;
       color: var(--text-muted);
-    }
-
-    .loading {
-      display: none;
-    }
-
-    .loading.active {
-      display: flex;
-    }
-
-    .spinner {
-      width: 20px;
-      height: 20px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .error-message {
-      background: rgba(220, 38, 38, 0.15);
-      border: 1px solid rgba(220, 38, 38, 0.3);
-      color: #ef4444;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 20px;
-      display: none;
-    }
-
-    .error-message.active {
-      display: block;
-    }
-
-    .success-message {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #10b981;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 20px;
-      display: none;
-    }
-
-    .success-message.active {
-      display: block;
-    }
-
-    .signed-in-as {
-      text-align: center;
-      padding: 12px 16px;
-      background: var(--bg-surface-light);
-      border-radius: 10px;
-      margin-bottom: 20px;
-      font-size: 13px;
-      color: var(--text-secondary);
-    }
-
-    .signed-in-as strong {
-      color: var(--text-primary);
-    }
-
-    .switch-account-link {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-      cursor: pointer;
-      margin-left: 6px;
-    }
-
-    .switch-account-link:hover {
-      text-decoration: underline;
-    }
-
-    .pending-icon {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: rgba(245, 158, 11, 0.15);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 20px;
-    }
-
-    .pending-icon .material-icons {
-      font-size: 32px;
-      color: #f59e0b;
-    }
-
-    .pending-section {
-      text-align: center;
-    }
-
-    .pending-section h2 {
-      font-size: 22px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-
-    .pending-section p {
-      color: var(--text-secondary);
-      font-size: 14px;
-      line-height: 1.6;
-      margin-bottom: 24px;
     }
   </style>
 </head>
@@ -439,175 +218,27 @@
         <p class="logo-subtitle">Kate Collins Middle School</p>
       </div>
 
-      <? if (hasPendingRequest) { ?>
-      <!-- Pending Request State -->
-      <div class="pending-section">
-        <div class="pending-icon">
-          <span class="material-icons">hourglass_top</span>
-        </div>
-        <h2>Access Request Pending</h2>
-        <p>
-          Your request to access the Benchmark Analyzer has been submitted.
-          A school or division administrator will review your request.
-        </p>
-
-        <div class="info-box info-box-warning" style="text-align: left; margin-bottom: 20px;">
-          <span class="material-icons">info</span>
-          Signed in as <strong><?= user ? user.email : '' ?></strong>
-        </div>
-
-        <a class="btn btn-secondary" id="switchAccountPendingBtn"
-           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
-           target="_top" style="margin-bottom: 12px;">
-          <span class="material-icons">swap_horiz</span>
-          <span>Switch Google Account</span>
-        </a>
-
-        <a class="btn btn-secondary" href="<?= scriptUrl ?>" target="_top">
-          <span class="material-icons">refresh</span>
-          <span>Check Again</span>
-        </a>
-      </div>
-
-      <? } else { ?>
-      <!-- Access Request Form -->
-      <? if (user && user.email) { ?>
-      <div class="signed-in-as">
-        Signed in as <strong><?= user.email ?></strong>
-        <a class="switch-account-link"
-           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
-           target="_top">Switch</a>
-      </div>
-      <? } ?>
-
-      <div id="errorMessage" class="error-message"></div>
-      <div id="successMessage" class="success-message"></div>
-
-      <div id="accessRequestForm">
-        <div class="form-group">
-          <label>Your Name</label>
-          <input type="text" id="userName" class="form-input" placeholder="Enter your full name">
-        </div>
-
-        <div class="form-group">
-          <label>School Email</label>
-          <div class="email-input-group">
-            <input type="text" id="emailPrefix" class="form-input" placeholder="e.g. etruslow">
-            <span class="email-suffix">@waynesboro.k12.va.us</span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>School</label>
-          <select id="userSchool" class="form-input">
-            <option value="">Select your school...</option>
-            <option value="Kate Collins Middle School">Kate Collins Middle School</option>
-          </select>
-        </div>
-
-        <button type="button" class="btn btn-primary" id="submitBtn" onclick="handleRequestAccess()">
-          <span class="btn-text">Request Access</span>
-          <span class="material-icons btn-icon">send</span>
-          <span class="loading">
-            <span class="spinner"></span>
-          </span>
-        </button>
-      </div>
-
-      <div class="divider"><span>SECURE ACCESS</span></div>
+      <p class="sign-in-message">
+        Sign in with your <strong>@waynesboro.k12.va.us</strong> Google account to continue.
+      </p>
 
       <div class="info-box">
         <span class="material-icons">verified_user</span>
-        Enter your <strong>@waynesboro.k12.va.us</strong> email username to request access.
-        An administrator will review and approve your request.
+        Access is restricted to Waynesboro City Public Schools staff.
+        You will be automatically registered the first time you sign in.
       </div>
 
-      <? if (!user || !user.email) { ?>
-      <div style="margin-top: 16px;">
-        <a class="btn btn-secondary"
-           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
-           target="_top">
-          <span class="material-icons">login</span>
-          <span>Sign in with Google</span>
-        </a>
-      </div>
-      <? } ?>
+      <a class="btn btn-primary"
+         href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
+         target="_top">
+        <span class="material-icons">login</span>
+        <span>Sign in with Google</span>
+      </a>
 
       <p class="footer-text">
         By continuing, you agree to the division's data usage policies.
       </p>
-      <? } ?>
     </div>
   </div>
-
-  <script>
-    var scriptUrl = '<?= scriptUrl ?>';
-
-    <? if (user && user.email) { ?>
-    // Pre-fill the email prefix from the signed-in Google account
-    try {
-      var currentEmail = '<?= user.email ?>';
-      var prefixField = document.getElementById('emailPrefix');
-      if (prefixField && currentEmail && currentEmail.indexOf('@waynesboro.k12.va.us') !== -1) {
-        prefixField.value = currentEmail.split('@')[0];
-      }
-    } catch (e) {}
-    <? } ?>
-
-    function handleRequestAccess() {
-      var name = document.getElementById('userName').value.trim();
-      var emailPrefix = document.getElementById('emailPrefix').value.trim().toLowerCase();
-      var school = document.getElementById('userSchool').value;
-      var submitBtn = document.getElementById('submitBtn');
-      var errorMsg = document.getElementById('errorMessage');
-      var successMsg = document.getElementById('successMessage');
-
-      // Validate email prefix (alphanumeric, dots, hyphens, underscores)
-      if (!emailPrefix || !/^[a-z0-9._-]+$/.test(emailPrefix)) {
-        errorMsg.textContent = 'Please enter a valid email username (letters, numbers, dots, hyphens).';
-        errorMsg.classList.add('active');
-        successMsg.classList.remove('active');
-        return;
-      }
-
-      if (!name || !school) {
-        errorMsg.textContent = 'Please fill in all fields.';
-        errorMsg.classList.add('active');
-        successMsg.classList.remove('active');
-        return;
-      }
-
-      // Show loading state
-      submitBtn.querySelector('.btn-text').style.display = 'none';
-      submitBtn.querySelector('.btn-icon').style.display = 'none';
-      submitBtn.querySelector('.loading').classList.add('active');
-      submitBtn.disabled = true;
-      errorMsg.classList.remove('active');
-      successMsg.classList.remove('active');
-
-      google.script.run
-        .withSuccessHandler(function(result) {
-          // Show success state
-          successMsg.textContent = result.message || 'Access request submitted! An administrator will review your request.';
-          successMsg.classList.add('active');
-          errorMsg.classList.remove('active');
-
-          // Hide the form
-          document.getElementById('accessRequestForm').style.display = 'none';
-        })
-        .withFailureHandler(function(error) {
-          errorMsg.textContent = error.message || 'Request failed. Please try again.';
-          errorMsg.classList.add('active');
-          successMsg.classList.remove('active');
-
-          // Reset button
-          submitBtn.querySelector('.btn-text').style.display = 'inline';
-          submitBtn.querySelector('.btn-icon').style.display = 'inline';
-          submitBtn.querySelector('.loading').classList.remove('active');
-          submitBtn.disabled = false;
-        })
-        .submitAccessRequest(emailPrefix, name, school);
-    }
-  </script>
 </body>
 </html>

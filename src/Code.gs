@@ -86,17 +86,14 @@ const CONFIG = {
 function doGet(e) {
   try {
     const user = getCurrentUser();
-    
-    // If no user or new user, show login/access request page
-    if (!user || user.isNewUser) {
+
+    // If no user (not authenticated), show login page
+    if (!user) {
       const loginTemplate = HtmlService.createTemplateFromFile('Login');
-      loginTemplate.user = user;
       loginTemplate.config = CONFIG;
       loginTemplate.scriptUrl = ScriptApp.getService().getUrl();
-      loginTemplate.urlParams = (e && e.parameter) ? e.parameter : {};
-      loginTemplate.hasPendingRequest = user ? (user.hasPendingRequest || false) : false;
       return loginTemplate.evaluate()
-        .setTitle('KCMS Benchmark Analyzer - Request Access')
+        .setTitle('KCMS Benchmark Analyzer - Sign In')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
     
@@ -195,7 +192,11 @@ function include(filename) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Gets the current user's email and role
+ * Gets the current user's email and role.
+ * Domain users are auto-registered on first visit.
+ * The very first user to visit becomes division_admin.
+ * Users listed in the Settings sheet get their configured admin role.
+ * All other domain users are registered as teachers.
  */
 function getCurrentUser() {
   try {
@@ -205,62 +206,53 @@ function getCurrentUser() {
       return null;
     }
 
-    // Check if user exists in our system
+    // Check if user already exists in Users sheet
     const userData = getUserData(email);
-
     if (userData) {
       return userData;
     }
 
-    // User not in Users sheet — check if they're a configured admin
-    // Admins listed in Settings bypass the access request flow
+    // --- New user: auto-register ---
+    const ss = getOrCreateDatabase();
+    const userSheet = ss.getSheetByName(CONFIG.sheets.users);
+
+    if (!userSheet) {
+      Logger.log('Users sheet not found — reinitializing database');
+      initializeDatabase(ss);
+      return getCurrentUser(); // retry after init
+    }
+
+    // Determine role: Settings admin > first-ever user > teacher
+    let role = CONFIG.roles.TEACHER;
+
     const adminRole = checkIfAdmin(email);
     if (adminRole) {
-      const ss = getOrCreateDatabase();
-      const userSheet = ss.getSheetByName(CONFIG.sheets.users);
-      const name = email.split('@')[0];
-      const school = CONFIG.schools[0] || '';
-      userSheet.appendRow([
-        email,
-        name,
-        adminRole,
-        school,
-        JSON.stringify(CONFIG.defaults),
-        new Date().toISOString()
-      ]);
-      return {
-        email: email,
-        name: name,
-        role: adminRole,
-        school: school,
-        settings: CONFIG.defaults,
-        isNewUser: false
-      };
+      role = adminRole;
+    } else if (userSheet.getLastRow() < 2) {
+      // No users exist yet — first visitor becomes division admin
+      role = CONFIG.roles.DIVISION_ADMIN;
+      Logger.log('First user registered as division_admin: ' + email);
     }
 
-    // Check if there's a pending access request
-    const pendingRequest = getAccessRequestByEmail(email);
-    if (pendingRequest) {
-      return {
-        email: email,
-        name: pendingRequest.name,
-        role: null,
-        school: pendingRequest.school,
-        settings: CONFIG.defaults,
-        isNewUser: true,
-        hasPendingRequest: true
-      };
-    }
+    const name = email.split('@')[0];
+    const school = CONFIG.schools[0] || '';
 
-    // New user - return basic info for access request
+    userSheet.appendRow([
+      email,
+      name,
+      role,
+      school,
+      JSON.stringify(CONFIG.defaults),
+      new Date().toISOString()
+    ]);
+
     return {
       email: email,
-      name: email.split('@')[0],
-      role: null,
-      school: null,
+      name: name,
+      role: role,
+      school: school,
       settings: CONFIG.defaults,
-      isNewUser: true,
-      hasPendingRequest: false
+      isNewUser: false
     };
   } catch (error) {
     Logger.log('getCurrentUser error: ' + error.message);
@@ -603,17 +595,17 @@ function getOrCreateDatabase() {
     try {
       return SpreadsheetApp.openById(ssId);
     } catch (e) {
-      // If a DATABASE_ID exists but we can't open it, the current user
-      // likely doesn't have access to the shared database spreadsheet.
-      // Do NOT create a new one — that would overwrite the ID for everyone.
-      throw new Error('Unable to access the application database. Please contact an administrator to grant you access.');
+      // DATABASE_ID exists but spreadsheet is inaccessible (deleted or permissions changed).
+      // Log the error but create a fresh database so the app can recover.
+      Logger.log('WARNING: Could not open database ' + ssId + ': ' + e.message + '. Creating new database.');
     }
   }
 
-  // No DATABASE_ID set yet — first-time setup. Create the database.
+  // First-time setup or recovery — create the database.
   const ss = SpreadsheetApp.create('KCMS Benchmark Analyzer Database');
   ssId = ss.getId();
   props.setProperty('DATABASE_ID', ssId);
+  Logger.log('Created new database: ' + ssId);
 
   // Initialize sheets
   initializeDatabase(ss);

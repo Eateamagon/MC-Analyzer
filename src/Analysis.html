@@ -648,15 +648,16 @@
     function loadAssessment() {
       showLoading('Loading assessment...');
 
-      console.log('Calling getAssessmentData for:', currentAssessmentId);
+      console.log('Loading assessment metadata for:', currentAssessmentId);
 
+      // Use lightweight metadata call — student data stays server-side
       google.script.run
         .withSuccessHandler(function(data) {
           hideLoading();
-          console.log('Assessment data received:', data);
+          console.log('Assessment metadata received:', data);
 
           if (!data || !data.assessment) {
-            console.error('getAssessmentData returned:', JSON.stringify(data));
+            console.error('getAssessmentMetadata returned:', JSON.stringify(data));
             showFatalError(
               'The server returned empty data for this assessment (ID: ' +
               (currentAssessmentId || 'none').substring(0, 12) + '...). ' +
@@ -671,9 +672,6 @@
             (data.assessment.question_count || 0) + ' questions \u2022 ' +
             formatDate(data.assessment.date_uploaded);
 
-          // Store assessment data for analysis
-          window.assessmentData = data;
-
           // Check if there are existing results
           loadExistingResults();
         })
@@ -682,7 +680,7 @@
           console.error('Error loading assessment:', error);
           showFatalError(error.message || 'Unknown error loading assessment.');
         })
-        .getAssessmentData(currentAssessmentId);
+        .getAssessmentMetadata(currentAssessmentId);
     }
     
     function loadExistingResults() {

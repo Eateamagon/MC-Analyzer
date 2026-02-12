@@ -514,61 +514,25 @@ function generateDistrictSummary(teacherSummaries) {
 function storeAnalysisResults(assessmentId, results) {
   const ss = getOrCreateDatabase();
   const sheet = ss.getSheetByName(CONFIG.sheets.analysisResults);
-  
-  // Store each type of analysis separately
   const timestamp = new Date().toISOString();
-  
-  if (results.itemAnalysis) {
-    sheet.appendRow([
-      assessmentId,
-      'itemAnalysis',
-      JSON.stringify(Object.keys(results.itemAnalysis)),
-      timestamp,
-      JSON.stringify(results.settings),
-      JSON.stringify(results.itemAnalysis)
-    ]);
-  }
-  
-  if (results.smallGroups) {
-    sheet.appendRow([
-      assessmentId,
-      'smallGroups',
-      '',
-      timestamp,
-      JSON.stringify(results.settings),
-      JSON.stringify(results.smallGroups)
-    ]);
-  }
-  
-  if (results.heatmaps) {
-    sheet.appendRow([
-      assessmentId,
-      'heatmaps',
-      '',
-      timestamp,
-      JSON.stringify(results.settings),
-      JSON.stringify(results.heatmaps)
-    ]);
-  }
-  
-  if (results.districtSummary) {
-    sheet.appendRow([
-      assessmentId,
-      'districtSummary',
-      '',
-      timestamp,
-      JSON.stringify(results.settings),
-      JSON.stringify(results.districtSummary)
-    ]);
-  }
-  
+
+  // Consolidate all analysis types into a single JSON object in one row
+  const allData = {
+    itemAnalysis: results.itemAnalysis || null,
+    smallGroups: results.smallGroups || null,
+    heatmaps: results.heatmaps || null,
+    districtSummary: results.districtSummary || null,
+    teacherSummaries: results.teacherSummaries || []
+  };
+
+  // Single row write instead of 5 separate appendRow calls
   sheet.appendRow([
     assessmentId,
-    'teacherSummaries',
+    'all',        // consolidated type marker
     '',
     timestamp,
-    JSON.stringify(results.settings),
-    JSON.stringify(results.teacherSummaries)
+    JSON.stringify(results.settings || {}),
+    JSON.stringify(allData)
   ]);
 }
 
@@ -592,7 +556,18 @@ function getAnalysisResults(assessmentId) {
       if (String(data[i][0]).trim() === normalId) {
         const type = data[i][1];
         try {
-          results[type] = JSON.parse(data[i][5] || '{}');
+          if (type === 'all') {
+            // New consolidated format: single row with all analysis types
+            const allData = JSON.parse(data[i][5] || '{}');
+            if (allData.itemAnalysis) results.itemAnalysis = allData.itemAnalysis;
+            if (allData.smallGroups) results.smallGroups = allData.smallGroups;
+            if (allData.heatmaps) results.heatmaps = allData.heatmaps;
+            if (allData.districtSummary) results.districtSummary = allData.districtSummary;
+            if (allData.teacherSummaries) results.teacherSummaries = allData.teacherSummaries;
+          } else {
+            // Legacy format: one row per analysis type
+            results[type] = JSON.parse(data[i][5] || '{}');
+          }
           results.timestamp = data[i][3];
           results.settings = JSON.parse(data[i][4] || '{}');
         } catch (parseError) {

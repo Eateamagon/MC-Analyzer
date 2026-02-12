@@ -483,36 +483,36 @@
       <div id="errorMessage" class="error-message"></div>
       <div id="successMessage" class="success-message"></div>
 
-      <form id="accessRequestForm">
+      <div id="accessRequestForm">
         <div class="form-group">
           <label>Your Name</label>
-          <input type="text" id="userName" class="form-input" placeholder="Enter your full name" required>
+          <input type="text" id="userName" class="form-input" placeholder="Enter your full name">
         </div>
 
         <div class="form-group">
           <label>School Email</label>
           <div class="email-input-group">
-            <input type="text" id="emailPrefix" class="form-input" placeholder="e.g. etruslow" required>
+            <input type="text" id="emailPrefix" class="form-input" placeholder="e.g. etruslow">
             <span class="email-suffix">@waynesboro.k12.va.us</span>
           </div>
         </div>
 
         <div class="form-group">
           <label>School</label>
-          <select id="userSchool" class="form-input" required>
+          <select id="userSchool" class="form-input">
             <option value="">Select your school...</option>
             <option value="Kate Collins Middle School">Kate Collins Middle School</option>
           </select>
         </div>
 
-        <button type="submit" class="btn btn-primary" id="submitBtn">
+        <button type="button" class="btn btn-primary" id="submitBtn" onclick="handleRequestAccess()">
           <span class="btn-text">Request Access</span>
           <span class="material-icons btn-icon">send</span>
           <span class="loading">
             <span class="spinner"></span>
           </span>
         </button>
-      </form>
+      </div>
 
       <div class="divider"><span>SECURE ACCESS</span></div>
 
@@ -542,79 +542,71 @@
 
   <script>
     var scriptUrl = '<?= scriptUrl ?>';
-    var hasPendingRequest = <?= hasPendingRequest ?>;
 
-    if (!hasPendingRequest) {
-      <? if (user && user.email) { ?>
-      // Pre-fill the email prefix from the signed-in Google account
+    <? if (user && user.email) { ?>
+    // Pre-fill the email prefix from the signed-in Google account
+    try {
       var currentEmail = '<?= user.email ?>';
-      if (currentEmail && currentEmail.indexOf('@waynesboro.k12.va.us') !== -1) {
-        document.getElementById('emailPrefix').value = currentEmail.split('@')[0];
+      var prefixField = document.getElementById('emailPrefix');
+      if (prefixField && currentEmail && currentEmail.indexOf('@waynesboro.k12.va.us') !== -1) {
+        prefixField.value = currentEmail.split('@')[0];
       }
-      <? } ?>
+    } catch (e) {}
+    <? } ?>
 
-      document.getElementById('accessRequestForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+    function handleRequestAccess() {
+      var name = document.getElementById('userName').value.trim();
+      var emailPrefix = document.getElementById('emailPrefix').value.trim().toLowerCase();
+      var school = document.getElementById('userSchool').value;
+      var submitBtn = document.getElementById('submitBtn');
+      var errorMsg = document.getElementById('errorMessage');
+      var successMsg = document.getElementById('successMessage');
 
-        var name = document.getElementById('userName').value.trim();
-        var emailPrefix = document.getElementById('emailPrefix').value.trim().toLowerCase();
-        var school = document.getElementById('userSchool').value;
-        var submitBtn = document.getElementById('submitBtn');
-        var errorMsg = document.getElementById('errorMessage');
-        var successMsg = document.getElementById('successMessage');
-
-        // Validate email prefix (alphanumeric, dots, hyphens, underscores)
-        if (!/^[a-z0-9._-]+$/.test(emailPrefix)) {
-          errorMsg.textContent = 'Please enter a valid email username (letters, numbers, dots, hyphens).';
-          errorMsg.classList.add('active');
-          successMsg.classList.remove('active');
-          return;
-        }
-
-        if (!name || !school) {
-          errorMsg.textContent = 'Please fill in all fields.';
-          errorMsg.classList.add('active');
-          successMsg.classList.remove('active');
-          return;
-        }
-
-        // Show loading state
-        submitBtn.querySelector('.btn-text').style.display = 'none';
-        submitBtn.querySelector('.btn-icon').style.display = 'none';
-        submitBtn.querySelector('.loading').classList.add('active');
-        submitBtn.disabled = true;
-        errorMsg.classList.remove('active');
+      // Validate email prefix (alphanumeric, dots, hyphens, underscores)
+      if (!emailPrefix || !/^[a-z0-9._-]+$/.test(emailPrefix)) {
+        errorMsg.textContent = 'Please enter a valid email username (letters, numbers, dots, hyphens).';
+        errorMsg.classList.add('active');
         successMsg.classList.remove('active');
+        return;
+      }
 
-        google.script.run
-          .withSuccessHandler(function(result) {
-            // Show success state
-            successMsg.textContent = result.message || 'Access request submitted! An administrator will review your request.';
-            successMsg.classList.add('active');
-            errorMsg.classList.remove('active');
+      if (!name || !school) {
+        errorMsg.textContent = 'Please fill in all fields.';
+        errorMsg.classList.add('active');
+        successMsg.classList.remove('active');
+        return;
+      }
 
-            // Hide the form and show pending message
-            document.getElementById('accessRequestForm').style.display = 'none';
+      // Show loading state
+      submitBtn.querySelector('.btn-text').style.display = 'none';
+      submitBtn.querySelector('.btn-icon').style.display = 'none';
+      submitBtn.querySelector('.loading').classList.add('active');
+      submitBtn.disabled = true;
+      errorMsg.classList.remove('active');
+      successMsg.classList.remove('active');
 
-            // Reset button in case they come back
-            submitBtn.querySelector('.btn-text').style.display = 'inline';
-            submitBtn.querySelector('.btn-icon').style.display = 'inline';
-            submitBtn.querySelector('.loading').classList.remove('active');
-            submitBtn.disabled = false;
-          })
-          .withFailureHandler(function(error) {
-            errorMsg.textContent = error.message || 'Request failed. Please try again.';
-            errorMsg.classList.add('active');
-            successMsg.classList.remove('active');
+      google.script.run
+        .withSuccessHandler(function(result) {
+          // Show success state
+          successMsg.textContent = result.message || 'Access request submitted! An administrator will review your request.';
+          successMsg.classList.add('active');
+          errorMsg.classList.remove('active');
 
-            // Reset button
-            submitBtn.querySelector('.btn-text').style.display = 'inline';
-            submitBtn.querySelector('.btn-icon').style.display = 'inline';
-            submitBtn.querySelector('.loading').classList.remove('active');
-            submitBtn.disabled = false;
-          })
-          .submitAccessRequest(emailPrefix, name, school);
-      });
+          // Hide the form
+          document.getElementById('accessRequestForm').style.display = 'none';
+        })
+        .withFailureHandler(function(error) {
+          errorMsg.textContent = error.message || 'Request failed. Please try again.';
+          errorMsg.classList.add('active');
+          successMsg.classList.remove('active');
+
+          // Reset button
+          submitBtn.querySelector('.btn-text').style.display = 'inline';
+          submitBtn.querySelector('.btn-icon').style.display = 'inline';
+          submitBtn.querySelector('.loading').classList.remove('active');
+          submitBtn.disabled = false;
+        })
+        .submitAccessRequest(emailPrefix, name, school);
     }
   </script>
 </body>

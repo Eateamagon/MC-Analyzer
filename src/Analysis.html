@@ -350,6 +350,37 @@
     .teacher-filter select {
       min-width: 200px;
     }
+
+    /* Data source checkboxes for small groups */
+    .sg-source-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--border-radius-sm);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sg-source-item:hover {
+      background: var(--bg-hover);
+    }
+    .sg-source-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .sg-source-item .source-name {
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .sg-source-item .source-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .sg-source-item.checked {
+      background: rgba(124, 58, 237, 0.08);
+    }
   </style>
 </head>
 <body>
@@ -542,7 +573,34 @@
     </div>
 
     <div class="tab-content" id="groupsTab">
-      <div class="teacher-filter">
+      <!-- Data source selector -->
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">source</span>
+            Data Sources
+          </h2>
+          <span style="font-size: 12px; color: var(--text-muted);">Select assessments to combine for small group formation</span>
+        </div>
+        <div class="card-body">
+          <div id="sgSourceList" style="max-height: 200px; overflow-y: auto;">
+            <div class="loading-spinner" style="padding: 16px;">
+              <div class="spinner" style="width:24px;height:24px;"></div>
+              <span>Loading assessments...</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;">
+            <button class="btn btn-primary" id="sgGenerateBtn" onclick="generateLiveSmallGroups()" disabled>
+              <span class="material-icons">groups</span>
+              Generate Small Groups
+            </button>
+            <span id="sgSourceCount" style="font-size: 13px; color: var(--text-muted);">Select at least 1 data source</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter + results -->
+      <div class="teacher-filter" id="sgTeacherFilterRow" style="display: none;">
         <select id="groupTeacherFilter" class="form-input" onchange="filterGroupsByTeacher()">
           <option value="">All Teachers</option>
         </select>
@@ -550,7 +608,7 @@
       <div id="smallGroupsContent" class="groups-grid">
         <div class="empty-state">
           <span class="material-icons">groups</span>
-          <p>Run analysis to see small groups</p>
+          <p>Select data sources above, then click "Generate Small Groups"</p>
         </div>
       </div>
     </div>
@@ -684,6 +742,14 @@
     }
     
     function loadExistingResults() {
+      // Pre-load assessment list for the small groups source selector
+      if (currentAssessmentId) {
+        if (sgSelectedIds.indexOf(currentAssessmentId) === -1) {
+          sgSelectedIds.push(currentAssessmentId);
+        }
+        loadSmallGroupSources();
+      }
+
       google.script.run
         .withSuccessHandler(function(results) {
           console.log('Existing results:', results);
@@ -713,16 +779,7 @@
         .withSuccessHandler(function(check) {
           if (check.exists) {
             if (_restoreRunBtn) _restoreRunBtn();
-            showConfirm(
-              'Re-run Analysis?',
-              'Analysis was last run on ' + formatDate(check.timestamp) + '. Do you want to overwrite or create a new version?',
-              function() {
-                executeAnalysis(true);
-              },
-              function() {
-                // Cancel - do nothing
-              }
-            );
+            showRerunDialog(check.timestamp);
           } else {
             executeAnalysis(false);
           }
@@ -732,6 +789,34 @@
           showToast('Error checking analysis: ' + error.message, 'error');
         })
         .checkExistingAnalysis(currentAssessmentId);
+    }
+
+    function showRerunDialog(timestamp) {
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'rerunModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 440px;">' +
+          '<div class="modal-header"><h2>Re-run Analysis?</h2></div>' +
+          '<div class="modal-body">' +
+            '<p>Analysis was last run on <strong>' + formatDate(timestamp) + '</strong>.</p>' +
+            '<p style="color: var(--text-muted); margin-top: 8px;">Choose what to do with the existing results:</p>' +
+          '</div>' +
+          '<div class="modal-footer" style="flex-direction: column; gap: 8px;">' +
+            '<button class="btn btn-primary" style="width:100%;" id="rerunOverwriteBtn">' +
+              '<span class="material-icons">refresh</span> Overwrite Existing Results' +
+            '</button>' +
+            '<button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById(\'rerunModal\').remove()">Cancel</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      document.getElementById('rerunOverwriteBtn').addEventListener('click', function() {
+        var btn = document.getElementById('rerunOverwriteBtn');
+        setBtnLoading(btn, 'Overwriting...');
+        modal.remove();
+        executeAnalysis(true);
+      });
     }
 
     function executeAnalysis(overwrite) {
@@ -967,31 +1052,203 @@
       return html || '<p style="color: var(--text-muted);">No SOL data available</p>';
     }
     
-    function displaySmallGroups() {
-      const container = document.getElementById('smallGroupsContent');
-      if (!analysisResults.smallGroups || analysisResults.smallGroups.length === 0) {
-        container.innerHTML = '<div class="empty-state"><p>No small groups generated</p></div>';
+    // ── Small Groups: Multi-Source ──
+
+    var sgAvailableAssessments = [];
+    var sgSelectedIds = [];
+    var sgGroupsLoaded = false;
+
+    function loadSmallGroupSources() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          sgAvailableAssessments = assessments || [];
+          renderSmallGroupSources();
+        })
+        .withFailureHandler(function() {
+          document.getElementById('sgSourceList').innerHTML =
+            '<p style="color:var(--color-error); padding:12px;">Error loading assessments</p>';
+        })
+        .getAssessmentList();
+    }
+
+    function renderSmallGroupSources() {
+      var container = document.getElementById('sgSourceList');
+      if (sgAvailableAssessments.length === 0) {
+        container.innerHTML = '<p style="padding:12px; color:var(--text-muted);">No assessments found.</p>';
         return;
       }
-      
-      container.innerHTML = analysisResults.smallGroups.map(group => `
-        <div class="group-card" data-teacher="${group.teacher}">
-          <div class="group-header">
-            <div class="group-title">
-              <span class="material-icons" style="color: var(--primary);">groups</span>
-              ${group.teacher} - Group ${group.groupNumber}
-            </div>
-            <span class="group-period ${group.isUnknownPeriod ? 'unknown' : ''}">${group.period}</span>
-          </div>
-          <div class="group-students">
-            ${group.students.map(s => `<span class="student-tag">${s}</span>`).join('')}
-          </div>
-          <div class="group-sols">
-            <div class="sol-label">Focus SOLs:</div>
-            ${group.sharedWeakSOLs.map(sol => `<span class="sol-tag">${sol}</span>`).join('')}
-          </div>
-        </div>
-      `).join('');
+
+      container.innerHTML = sgAvailableAssessments.map(function(a) {
+        var isChecked = sgSelectedIds.indexOf(a.id) !== -1;
+        var isCurrent = (a.id === currentAssessmentId);
+        return '<label class="sg-source-item' + (isChecked ? ' checked' : '') + '">' +
+          '<input type="checkbox" value="' + a.id + '"' + (isChecked ? ' checked' : '') +
+          ' onchange="toggleSgSource(this)">' +
+          '<div>' +
+            '<div class="source-name">' + (a.name || 'Unnamed') +
+            (isCurrent ? ' <span style="color:var(--primary);font-size:11px;">(current)</span>' : '') +
+            '</div>' +
+            '<div class="source-meta">' +
+              (a.subject || '') + (a.grade_level ? ' &bull; Grade ' + a.grade_level : '') +
+              ' &bull; ' + (a.student_count || 0) + ' students' +
+              ' &bull; ' + formatDate(a.date_uploaded) +
+            '</div>' +
+          '</div>' +
+        '</label>';
+      }).join('');
+
+      updateSgButton();
+    }
+
+    function toggleSgSource(checkbox) {
+      var id = checkbox.value;
+      var idx = sgSelectedIds.indexOf(id);
+      if (checkbox.checked && idx === -1) {
+        sgSelectedIds.push(id);
+      } else if (!checkbox.checked && idx !== -1) {
+        sgSelectedIds.splice(idx, 1);
+      }
+      // Update visual checked state
+      var label = checkbox.closest('.sg-source-item');
+      if (label) label.classList.toggle('checked', checkbox.checked);
+      updateSgButton();
+    }
+
+    function updateSgButton() {
+      var btn = document.getElementById('sgGenerateBtn');
+      var count = document.getElementById('sgSourceCount');
+      btn.disabled = sgSelectedIds.length === 0;
+      if (sgSelectedIds.length === 0) {
+        count.textContent = 'Select at least 1 data source';
+      } else {
+        count.textContent = sgSelectedIds.length + ' source' + (sgSelectedIds.length > 1 ? 's' : '') + ' selected';
+      }
+    }
+
+    function generateLiveSmallGroups() {
+      if (sgSelectedIds.length === 0) return;
+
+      var btn = document.getElementById('sgGenerateBtn');
+      var restore = setBtnLoading(btn, 'Generating...');
+      showToast('Generating small groups from ' + sgSelectedIds.length + ' source(s)...', 'info');
+      showLoading('Generating small groups...');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          hideLoading();
+          restore();
+          renderLiveSmallGroups(result);
+          showToast('Small groups ready! ' + result.groups.length + ' groups formed from ' + result.studentCount + ' students.', 'success');
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          restore();
+          showToast('Error: ' + error.message, 'error');
+        })
+        .generateMultiSourceSmallGroups(sgSelectedIds);
+    }
+
+    function renderLiveSmallGroups(result) {
+      var groups = result.groups;
+      var container = document.getElementById('smallGroupsContent');
+
+      // Show the teacher filter
+      document.getElementById('sgTeacherFilterRow').style.display = 'block';
+
+      // Populate teacher filter
+      var teachers = [];
+      groups.forEach(function(g) {
+        if (teachers.indexOf(g.teacher) === -1) teachers.push(g.teacher);
+      });
+      var filterSelect = document.getElementById('groupTeacherFilter');
+      filterSelect.innerHTML = '<option value="">All Teachers</option>';
+      teachers.sort().forEach(function(t) {
+        var opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        filterSelect.appendChild(opt);
+      });
+
+      if (groups.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No students met the weakness threshold. Try adjusting your settings.</p></div>';
+        return;
+      }
+
+      container.innerHTML =
+        '<div style="margin-bottom:16px;font-size:13px;color:var(--text-muted);">' +
+          'Based on: <strong>' + result.sources.join('</strong>, <strong>') + '</strong>' +
+          ' &bull; ' + result.studentCount + ' students matched' +
+        '</div>' +
+        groups.map(function(group) {
+          return '<div class="group-card" data-teacher="' + group.teacher + '">' +
+            '<div class="group-header">' +
+              '<div class="group-title">' +
+                '<span class="material-icons" style="color: var(--primary);">groups</span>' +
+                group.teacher + ' - Group ' + group.groupNumber +
+              '</div>' +
+              '<span class="group-period ' + (group.isUnknownPeriod ? 'unknown' : '') + '">' + group.period + '</span>' +
+            '</div>' +
+            '<div class="group-students">' +
+              group.students.map(function(s) { return '<span class="student-tag">' + s + '</span>'; }).join('') +
+            '</div>' +
+            '<div class="group-sols">' +
+              '<div class="sol-label">Focus SOLs:</div>' +
+              group.sharedWeakSOLs.map(function(sol) { return '<span class="sol-tag">' + sol + '</span>'; }).join('') +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+      sgGroupsLoaded = true;
+    }
+
+    function displaySmallGroups() {
+      // If we have cached single-assessment small groups, pre-select current assessment
+      // and auto-load sources
+      if (!sgGroupsLoaded && currentAssessmentId) {
+        if (sgSelectedIds.indexOf(currentAssessmentId) === -1) {
+          sgSelectedIds.push(currentAssessmentId);
+        }
+        loadSmallGroupSources();
+      }
+
+      // Also render cached groups from the current analysis if available
+      var container = document.getElementById('smallGroupsContent');
+      if (analysisResults && analysisResults.smallGroups && analysisResults.smallGroups.length > 0 && !sgGroupsLoaded) {
+        document.getElementById('sgTeacherFilterRow').style.display = 'block';
+
+        // Populate teacher filter from cached results
+        var teachers = [];
+        analysisResults.smallGroups.forEach(function(g) {
+          if (teachers.indexOf(g.teacher) === -1) teachers.push(g.teacher);
+        });
+        var filterSelect = document.getElementById('groupTeacherFilter');
+        filterSelect.innerHTML = '<option value="">All Teachers</option>';
+        teachers.sort().forEach(function(t) {
+          var opt = document.createElement('option');
+          opt.value = t;
+          opt.textContent = t;
+          filterSelect.appendChild(opt);
+        });
+
+        container.innerHTML = analysisResults.smallGroups.map(function(group) {
+          return '<div class="group-card" data-teacher="' + group.teacher + '">' +
+            '<div class="group-header">' +
+              '<div class="group-title">' +
+                '<span class="material-icons" style="color: var(--primary);">groups</span>' +
+                group.teacher + ' - Group ' + group.groupNumber +
+              '</div>' +
+              '<span class="group-period ' + (group.isUnknownPeriod ? 'unknown' : '') + '">' + group.period + '</span>' +
+            '</div>' +
+            '<div class="group-students">' +
+              group.students.map(function(s) { return '<span class="student-tag">' + s + '</span>'; }).join('') +
+            '</div>' +
+            '<div class="group-sols">' +
+              '<div class="sol-label">Focus SOLs:</div>' +
+              group.sharedWeakSOLs.map(function(sol) { return '<span class="sol-tag">' + sol + '</span>'; }).join('') +
+            '</div>' +
+          '</div>';
+        }).join('');
+      }
     }
     
     function displayDistrictSummary() {

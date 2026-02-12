@@ -598,23 +598,26 @@ function updateUserSettings(settings) {
 function getOrCreateDatabase() {
   const props = PropertiesService.getScriptProperties();
   let ssId = props.getProperty('DATABASE_ID');
-  
+
   if (ssId) {
     try {
       return SpreadsheetApp.openById(ssId);
     } catch (e) {
-      // Database not found, create new
+      // If a DATABASE_ID exists but we can't open it, the current user
+      // likely doesn't have access to the shared database spreadsheet.
+      // Do NOT create a new one — that would overwrite the ID for everyone.
+      throw new Error('Unable to access the application database. Please contact an administrator to grant you access.');
     }
   }
-  
-  // Create new database
+
+  // No DATABASE_ID set yet — first-time setup. Create the database.
   const ss = SpreadsheetApp.create('KCMS Benchmark Analyzer Database');
   ssId = ss.getId();
   props.setProperty('DATABASE_ID', ssId);
-  
+
   // Initialize sheets
   initializeDatabase(ss);
-  
+
   return ss;
 }
 

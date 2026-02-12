@@ -614,6 +614,18 @@ function getOrCreateDatabase() {
 }
 
 /**
+ * Run this function once from the Apps Script editor to point the app
+ * at an existing Google Sheet database. After running, the web app will
+ * use this sheet for all data.
+ */
+function setDatabaseId() {
+  var id = '1r6R4caBmW-Bv13Zy-lJnihN5AoXoyhb6CShImtoulBw';
+  SpreadsheetApp.openById(id); // verify it's accessible
+  PropertiesService.getScriptProperties().setProperty('DATABASE_ID', id);
+  Logger.log('DATABASE_ID set to: ' + id);
+}
+
+/**
  * Initializes the database structure
  */
 function initializeDatabase(ss) {

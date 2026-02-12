@@ -155,7 +155,7 @@
       color: transparent;
     }
 
-    /* Item Analysis Table */
+    /* Item Analysis Table (legacy, still used in teacher summaries) */
     .item-table {
       width: 100%;
       border-collapse: collapse;
@@ -200,6 +200,144 @@
       padding: 2px 8px;
       border-radius: 4px;
       font-size: 11px;
+    }
+
+    /* Item Analysis Cards */
+    .item-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    .item-card {
+      background: var(--bg-surface);
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    .item-card.flagged {
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .item-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .item-card-q {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .item-card-sol {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-surface-light);
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+
+    .item-card-body {
+      padding: 16px 20px;
+    }
+
+    .item-score-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-surface-light);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .item-score-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .item-card-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .item-stat-box {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--bg-surface-light);
+    }
+
+    .item-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .item-stat-value {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .item-distractors {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 12px;
+    }
+
+    .item-distractors-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .distractor-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .distractor-answer {
+      width: 24px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .distractor-answer.correct {
+      color: var(--color-strength);
+    }
+
+    .distractor-bar-track {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--bg-surface-light);
+      overflow: hidden;
+    }
+
+    .distractor-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--text-muted);
+    }
+
+    .distractor-bar-fill.correct-fill {
+      background: var(--color-strength);
+    }
+
+    .distractor-count {
+      width: 32px;
+      text-align: right;
+      font-size: 12px;
+      color: var(--text-muted);
     }
 
     /* Small Groups */
@@ -413,8 +551,18 @@
     <!-- No Results Message -->
     <div id="noResultsMessage" class="empty-state" style="display: none; padding: 60px 20px;">
       <span class="material-icons" style="font-size: 64px; color: var(--primary); margin-bottom: 16px;">analytics</span>
-      <h3 style="margin-bottom: 8px;">Ready to Analyze</h3>
-      <p style="color: var(--text-muted); margin-bottom: 24px;">Click "Run Analysis" to generate insights from this assessment data.</p>
+      <h3 style="margin-bottom: 8px;">No Analysis Results Yet</h3>
+      <p style="color: var(--text-muted); margin-bottom: 8px;">This assessment has not been analyzed. Select your options above and run analysis to generate:</p>
+      <ul style="color: var(--text-muted); text-align: left; display: inline-block; margin-bottom: 24px; line-height: 2;">
+        <li>Teacher summaries with SOL performance breakdown</li>
+        <li>Item analysis with distractor reports</li>
+        <li>Small group recommendations</li>
+        <li>Student and SOL heatmaps</li>
+      </ul>
+      <button class="btn btn-primary" onclick="runAnalysis()" style="margin: 0 auto;">
+        <span class="material-icons">play_arrow</span>
+        Run Analysis Now
+      </button>
     </div>
 
     <!-- Analysis Tabs -->
@@ -671,7 +819,7 @@
     var _restoreRunBtn = null;
 
     function runAnalysis() {
-      // Disable button immediately
+      // Disable button immediately and save original restore
       var btn = document.querySelector('.options-panel .btn-primary');
       _restoreRunBtn = setBtnLoading(btn, 'Checking...');
 
@@ -679,13 +827,19 @@
         .withSuccessHandler(function(check) {
           if (check.exists) {
             if (_restoreRunBtn) _restoreRunBtn();
+            _restoreRunBtn = null;
             showRerunDialog(check.timestamp);
           } else {
+            // Update button text without losing the original restore
+            if (btn) {
+              btn.innerHTML = '<span class="btn-spinner"></span><span>Running Analysis...</span>';
+            }
             executeAnalysis(false);
           }
         })
         .withFailureHandler(function(error) {
           if (_restoreRunBtn) _restoreRunBtn();
+          _restoreRunBtn = null;
           showToast('Error checking analysis: ' + error.message, 'error');
         })
         .checkExistingAnalysis(currentAssessmentId);
@@ -721,7 +875,12 @@
 
     function executeAnalysis(overwrite) {
       var btn = document.querySelector('.options-panel .btn-primary');
-      _restoreRunBtn = setBtnLoading(btn, 'Running Analysis...');
+      // Only set loading if not already in loading state (preserve existing restore)
+      if (!_restoreRunBtn) {
+        _restoreRunBtn = setBtnLoading(btn, 'Running Analysis...');
+      } else if (btn) {
+        btn.innerHTML = '<span class="btn-spinner"></span><span>Running Analysis...</span>';
+      }
       showLoading('Running analysis...');
 
       const options = {
@@ -1245,48 +1404,70 @@
     function filterItemsByTeacher() {
       const teacher = document.getElementById('itemTeacherFilter').value;
       const container = document.getElementById('itemAnalysisContent');
-      
+
       if (!teacher || !analysisResults.itemAnalysis || !analysisResults.itemAnalysis[teacher]) {
-        container.innerHTML = '<div class="empty-state"><p>Select a teacher to view item analysis</p></div>';
+        container.innerHTML = '<div class="empty-state"><span class="material-icons">quiz</span><p>Select a teacher to view item analysis</p></div>';
         return;
       }
-      
+
       const items = analysisResults.itemAnalysis[teacher];
-      
-      container.innerHTML = `
-        <table class="item-table">
-          <thead>
-            <tr>
-              <th>Question</th>
-              <th>SOL</th>
-              <th>Correct Answer</th>
-              <th>% Correct</th>
-              <th>Top Wrong</th>
-              <th>Count</th>
-              <th>All Distractors</th>
-              <th>Alert</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${items.map(item => `
-              <tr>
-                <td><strong>${item.question}</strong></td>
-                <td>${item.sol}</td>
-                <td>${item.correctAnswer}</td>
-                <td class="${getScoreClass(item.pctCorrect)}">${item.pctCorrect}%</td>
-                <td>${item.topWrongAnswer}</td>
-                <td>${item.topWrongCount || '-'}</td>
-                <td>
-                  <div class="distractor-list">
-                    ${item.allDistractors.map(d => `<span class="distractor-item">${d.answer}: ${d.count}</span>`).join('')}
-                  </div>
-                </td>
-                <td>${item.reviewFlag ? '<span class="review-flag">⚠️ Review</span>' : ''}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      `;
+      // Total students for this teacher to calculate bar widths
+      const totalStudents = items.length > 0 && items[0].allDistractors
+        ? items[0].allDistractors.reduce(function(sum, d) { return sum + d.count; }, 0)
+        : 1;
+
+      container.innerHTML = '<div class="item-cards">' + items.map(function(item) {
+        var scoreColor = item.pctCorrect >= 75 ? 'var(--color-strength)' :
+                         item.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        var totalResp = item.allDistractors ? item.allDistractors.reduce(function(s, d) { return s + d.count; }, 0) : 0;
+
+        var distractorBars = (item.allDistractors || []).map(function(d) {
+          var pct = totalResp > 0 ? Math.round(d.count / totalResp * 100) : 0;
+          var isCorrect = d.answer === item.correctAnswer;
+          return '<div class="distractor-bar-row">' +
+            '<span class="distractor-answer' + (isCorrect ? ' correct' : '') + '">' + d.answer + '</span>' +
+            '<div class="distractor-bar-track"><div class="distractor-bar-fill' + (isCorrect ? ' correct-fill' : '') + '" style="width:' + pct + '%;"></div></div>' +
+            '<span class="distractor-count">' + d.count + '</span>' +
+          '</div>';
+        }).join('');
+
+        return '<div class="item-card' + (item.reviewFlag ? ' flagged' : '') + '">' +
+          '<div class="item-card-top">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+              '<span class="item-card-q">' + item.question + '</span>' +
+              (item.reviewFlag ? '<span class="review-flag">Needs Review</span>' : '') +
+            '</div>' +
+            '<span class="item-card-sol">' + item.sol + '</span>' +
+          '</div>' +
+          '<div class="item-card-body">' +
+            '<div class="item-score-bar"><div class="item-score-fill" style="width:' + item.pctCorrect + '%;background:' + scoreColor + ';"></div></div>' +
+            '<div class="item-card-stats">' +
+              '<div class="item-stat-box">' +
+                '<div class="item-stat-label">% Correct</div>' +
+                '<div class="item-stat-value" style="color:' + scoreColor + ';">' + item.pctCorrect + '%</div>' +
+              '</div>' +
+              '<div class="item-stat-box">' +
+                '<div class="item-stat-label">Correct Answer</div>' +
+                '<div class="item-stat-value" style="color:var(--color-strength);">' + item.correctAnswer + '</div>' +
+              '</div>' +
+            '</div>' +
+            (item.topWrongAnswer ? '<div class="item-card-stats">' +
+              '<div class="item-stat-box">' +
+                '<div class="item-stat-label">Top Wrong Answer</div>' +
+                '<div class="item-stat-value" style="color:var(--color-growth);">' + item.topWrongAnswer + '</div>' +
+              '</div>' +
+              '<div class="item-stat-box">' +
+                '<div class="item-stat-label">Wrong Count</div>' +
+                '<div class="item-stat-value">' + (item.topWrongCount || '-') + '</div>' +
+              '</div>' +
+            '</div>' : '') +
+            (distractorBars ? '<div class="item-distractors">' +
+              '<div class="item-distractors-title">Response Distribution</div>' +
+              distractorBars +
+            '</div>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
     }
     
     function filterGroupsByTeacher() {

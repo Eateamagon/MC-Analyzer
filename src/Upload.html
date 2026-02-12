@@ -473,10 +473,21 @@
           </h2>
         </div>
         <div class="card-body">
-          <p class="mb-2" style="color: var(--text-muted);">
-            Assign class periods to students for accurate small group organization. You can skip this step and add periods later.
-          </p>
-          
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <p style="color: var(--text-muted); margin: 0;">
+              Assign class periods to students for accurate small group organization.
+            </p>
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+              <button class="btn btn-ghost" onclick="skipPeriods()">
+                Skip for Now
+              </button>
+              <button class="btn btn-primary" onclick="savePeriods()">
+                Save & Run Analysis
+                <span class="material-icons">analytics</span>
+              </button>
+            </div>
+          </div>
+
           <div class="bulk-period-input">
             <input type="text" id="bulkPeriodValue" class="form-input" placeholder="Enter period (e.g., Period 1, Block A)">
             <button class="btn btn-secondary" onclick="applyBulkPeriod()">
@@ -486,19 +497,9 @@
               Select All
             </button>
           </div>
-          
+
           <div id="periodsList">
             <!-- Dynamically populated -->
-          </div>
-          
-          <div style="margin-top: 24px; display: flex; justify-content: space-between;">
-            <button class="btn btn-ghost" onclick="skipPeriods()">
-              Skip for Now
-            </button>
-            <button class="btn btn-primary" onclick="savePeriods()">
-              Save & Run Analysis
-              <span class="material-icons">analytics</span>
-            </button>
           </div>
         </div>
       </div>

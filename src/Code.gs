@@ -32,7 +32,8 @@ const CONFIG = {
     assessments: 'Assessments',
     rawData: 'RawData',
     classPeriods: 'ClassPeriods',
-    analysisResults: 'AnalysisResults'
+    analysisResults: 'AnalysisResults',
+    accessRequests: 'AccessRequests'
   },
 
   // Schools in the division
@@ -86,15 +87,16 @@ function doGet(e) {
   try {
     const user = getCurrentUser();
     
-    // If no user or new user, show login/registration
+    // If no user or new user, show login/access request page
     if (!user || user.isNewUser) {
       const loginTemplate = HtmlService.createTemplateFromFile('Login');
       loginTemplate.user = user;
       loginTemplate.config = CONFIG;
       loginTemplate.scriptUrl = ScriptApp.getService().getUrl();
       loginTemplate.urlParams = (e && e.parameter) ? e.parameter : {};
+      loginTemplate.hasPendingRequest = user ? (user.hasPendingRequest || false) : false;
       return loginTemplate.evaluate()
-        .setTitle('KCMS Benchmark Analyzer - Login')
+        .setTitle('KCMS Benchmark Analyzer - Request Access')
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
     
@@ -198,26 +200,41 @@ function include(filename) {
 function getCurrentUser() {
   try {
     const email = Session.getActiveUser().getEmail();
-    
+
     if (!email) {
       return null;
     }
-    
+
     // Check if user exists in our system
     const userData = getUserData(email);
-    
+
     if (!userData) {
-      // New user - return basic info for registration
+      // Check if there's a pending access request
+      const pendingRequest = getAccessRequestByEmail(email);
+      if (pendingRequest) {
+        return {
+          email: email,
+          name: pendingRequest.name,
+          role: null,
+          school: pendingRequest.school,
+          settings: CONFIG.defaults,
+          isNewUser: true,
+          hasPendingRequest: true
+        };
+      }
+
+      // New user - return basic info for access request
       return {
         email: email,
         name: email.split('@')[0],
         role: null,
         school: null,
         settings: CONFIG.defaults,
-        isNewUser: true
+        isNewUser: true,
+        hasPendingRequest: false
       };
     }
-    
+
     return userData;
   } catch (error) {
     Logger.log('getCurrentUser error: ' + error.message);
@@ -276,47 +293,226 @@ function getUserData(email) {
 }
 
 /**
- * Registers a new user or updates existing user
+ * Submits an access request for a new user.
+ * The emailPrefix is the part before @waynesboro.k12.va.us.
  */
-function registerUser(name, school) {
-  const email = Session.getActiveUser().getEmail();
-  if (!email) throw new Error('Not authenticated');
+function submitAccessRequest(emailPrefix, name, school) {
+  const sessionEmail = Session.getActiveUser().getEmail();
+  if (!sessionEmail) throw new Error('Not authenticated. Please sign in with your Google account.');
 
-  // Validate email domain
-  if (!email.toLowerCase().endsWith('@waynesboro.k12.va.us')) {
+  // Build the expected email from the prefix
+  const requestedEmail = emailPrefix.toLowerCase().trim() + '@waynesboro.k12.va.us';
+
+  // Validate the session email matches the requested email
+  if (sessionEmail.toLowerCase() !== requestedEmail) {
+    throw new Error(
+      'You are signed in as ' + sessionEmail + ' but requesting access for ' + requestedEmail +
+      '. Please switch to the correct Google account.'
+    );
+  }
+
+  // Validate domain
+  if (!sessionEmail.toLowerCase().endsWith('@waynesboro.k12.va.us')) {
     throw new Error('Access restricted to @waynesboro.k12.va.us accounts only.');
   }
-  
-  const ss = getOrCreateDatabase();
-  const sheet = ss.getSheetByName(CONFIG.sheets.users);
-  
-  // Check if user already exists
-  const existingUser = getUserData(email);
+
+  // Check if already registered
+  const existingUser = getUserData(sessionEmail);
   if (existingUser && !existingUser.isNewUser) {
-    throw new Error('User already registered');
+    throw new Error('You are already registered.');
   }
-  
-  // Determine role - check if admin
-  const role = checkIfAdmin(email) || CONFIG.roles.TEACHER;
-  
-  // Add user
-  sheet.appendRow([
-    email,
+
+  const ss = getOrCreateDatabase();
+
+  // Ensure AccessRequests sheet exists
+  let arSheet = ss.getSheetByName(CONFIG.sheets.accessRequests);
+  if (!arSheet) {
+    arSheet = ss.insertSheet(CONFIG.sheets.accessRequests);
+    arSheet.getRange(1, 1, 1, 7).setValues([['id', 'email', 'name', 'school', 'status', 'requested_at', 'resolved_at']]);
+  }
+
+  // Check for existing pending request
+  const existingRequest = getAccessRequestByEmail(sessionEmail);
+  if (existingRequest) {
+    throw new Error('You already have a pending access request. Please wait for an administrator to approve it.');
+  }
+
+  // Create request
+  const requestId = Utilities.getUuid();
+  arSheet.appendRow([
+    requestId,
+    sessionEmail.toLowerCase(),
     name,
-    role,
     school,
-    JSON.stringify(CONFIG.defaults),
-    new Date().toISOString()
+    'pending',
+    new Date().toISOString(),
+    ''
   ]);
-  
-  return {
-    email: email,
-    name: name,
-    role: role,
-    school: school,
-    settings: CONFIG.defaults,
-    isNewUser: false
-  };
+
+  return { success: true, message: 'Access request submitted. An administrator will review your request.' };
+}
+
+/**
+ * Gets a pending access request by email
+ */
+function getAccessRequestByEmail(email) {
+  const ss = getOrCreateDatabase();
+  const sheet = ss.getSheetByName(CONFIG.sheets.accessRequests);
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return null;
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const emailCol = headers.indexOf('email');
+  const statusCol = headers.indexOf('status');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][emailCol] && data[i][emailCol].toString().toLowerCase() === email.toLowerCase()
+        && data[i][statusCol] === 'pending') {
+      const result = {};
+      headers.forEach((h, idx) => { result[h] = data[i][idx]; });
+      return result;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Gets all access requests (admin function)
+ */
+function getAccessRequests() {
+  const user = getCurrentUser();
+  if (!user || user.role === CONFIG.roles.TEACHER) {
+    throw new Error('Admin access required');
+  }
+
+  const ss = getOrCreateDatabase();
+  const sheet = ss.getSheetByName(CONFIG.sheets.accessRequests);
+
+  if (!sheet || sheet.getLastRow() < 2) {
+    return [];
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const requests = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const req = {};
+    headers.forEach((h, idx) => { req[h] = data[i][idx]; });
+
+    // School admins only see requests for their school
+    if (user.role === CONFIG.roles.SCHOOL_ADMIN && req.school !== user.school) {
+      continue;
+    }
+
+    requests.push(req);
+  }
+
+  // Sort: pending first, then by date descending
+  requests.sort(function(a, b) {
+    if (a.status === 'pending' && b.status !== 'pending') return -1;
+    if (a.status !== 'pending' && b.status === 'pending') return 1;
+    return new Date(b.requested_at) - new Date(a.requested_at);
+  });
+
+  return requests;
+}
+
+/**
+ * Approves an access request (admin function)
+ */
+function approveAccessRequest(requestId) {
+  const user = getCurrentUser();
+  if (!user || user.role === CONFIG.roles.TEACHER) {
+    throw new Error('Admin access required');
+  }
+
+  const ss = getOrCreateDatabase();
+  const arSheet = ss.getSheetByName(CONFIG.sheets.accessRequests);
+  if (!arSheet || arSheet.getLastRow() < 2) throw new Error('Request not found');
+
+  const data = arSheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id');
+  const emailCol = headers.indexOf('email');
+  const nameCol = headers.indexOf('name');
+  const schoolCol = headers.indexOf('school');
+  const statusCol = headers.indexOf('status');
+  const resolvedCol = headers.indexOf('resolved_at');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === requestId && data[i][statusCol] === 'pending') {
+      const email = data[i][emailCol];
+      const name = data[i][nameCol];
+      const school = data[i][schoolCol];
+
+      // School admins can only approve for their school
+      if (user.role === CONFIG.roles.SCHOOL_ADMIN && school !== user.school) {
+        throw new Error('You can only approve requests for your school');
+      }
+
+      // Mark request as approved
+      arSheet.getRange(i + 1, statusCol + 1).setValue('approved');
+      arSheet.getRange(i + 1, resolvedCol + 1).setValue(new Date().toISOString());
+
+      // Create user account
+      const role = checkIfAdmin(email) || CONFIG.roles.TEACHER;
+      const userSheet = ss.getSheetByName(CONFIG.sheets.users);
+      userSheet.appendRow([
+        email,
+        name,
+        role,
+        school,
+        JSON.stringify(CONFIG.defaults),
+        new Date().toISOString()
+      ]);
+
+      return { success: true, email: email, name: name };
+    }
+  }
+
+  throw new Error('Request not found or already resolved');
+}
+
+/**
+ * Denies an access request (admin function)
+ */
+function denyAccessRequest(requestId) {
+  const user = getCurrentUser();
+  if (!user || user.role === CONFIG.roles.TEACHER) {
+    throw new Error('Admin access required');
+  }
+
+  const ss = getOrCreateDatabase();
+  const arSheet = ss.getSheetByName(CONFIG.sheets.accessRequests);
+  if (!arSheet || arSheet.getLastRow() < 2) throw new Error('Request not found');
+
+  const data = arSheet.getDataRange().getValues();
+  const headers = data[0];
+  const idCol = headers.indexOf('id');
+  const schoolCol = headers.indexOf('school');
+  const statusCol = headers.indexOf('status');
+  const resolvedCol = headers.indexOf('resolved_at');
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][idCol] === requestId && data[i][statusCol] === 'pending') {
+      // School admins can only deny for their school
+      if (user.role === CONFIG.roles.SCHOOL_ADMIN && data[i][schoolCol] !== user.school) {
+        throw new Error('You can only deny requests for your school');
+      }
+
+      arSheet.getRange(i + 1, statusCol + 1).setValue('denied');
+      arSheet.getRange(i + 1, resolvedCol + 1).setValue(new Date().toISOString());
+
+      return { success: true };
+    }
+  }
+
+  throw new Error('Request not found or already resolved');
 }
 
 /**
@@ -432,6 +628,10 @@ function initializeDatabase(ss) {
   // Analysis Results sheet
   sheet = ss.insertSheet(CONFIG.sheets.analysisResults);
   sheet.getRange(1, 1, 1, 6).setValues([['assessment_id', 'analysis_type', 'teacher', 'created_at', 'settings', 'data']]);
+
+  // Access Requests sheet
+  sheet = ss.insertSheet(CONFIG.sheets.accessRequests);
+  sheet.getRange(1, 1, 1, 7).setValues([['id', 'email', 'name', 'school', 'status', 'requested_at', 'resolved_at']]);
 }
 
 /**

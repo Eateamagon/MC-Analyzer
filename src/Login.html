@@ -20,13 +20,13 @@
       --text-secondary: #a0aec0;
       --text-muted: #64748b;
     }
-    
+
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
-    
+
     body {
       font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       background: var(--bg-dark);
@@ -37,7 +37,7 @@
       justify-content: center;
       overflow: hidden;
     }
-    
+
     /* Animated background */
     .bg-pattern {
       position: fixed;
@@ -65,7 +65,7 @@
       background-size: 50px 50px;
       z-index: 1;
     }
-    
+
     .login-container {
       position: relative;
       z-index: 10;
@@ -73,18 +73,18 @@
       max-width: 440px;
       padding: 20px;
     }
-    
+
     .login-card {
       background: var(--bg-surface);
       border-radius: 24px;
       padding: 48px 40px;
-      box-shadow: 
+      box-shadow:
         0 25px 50px rgba(0, 0, 0, 0.5),
         0 0 100px rgba(0, 161, 75, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.05);
       animation: slideUp 0.6s ease;
     }
-    
+
     @keyframes slideUp {
       from {
         opacity: 0;
@@ -95,12 +95,12 @@
         transform: translateY(0);
       }
     }
-    
+
     .logo-section {
       text-align: center;
       margin-bottom: 40px;
     }
-    
+
     .logo-icon {
       width: 80px;
       height: 80px;
@@ -114,7 +114,7 @@
       box-shadow: 0 10px 40px var(--primary-glow);
       animation: pulse 3s ease-in-out infinite;
     }
-    
+
     @keyframes pulse {
       0%, 100% {
         box-shadow: 0 10px 40px var(--primary-glow);
@@ -123,27 +123,27 @@
         box-shadow: 0 10px 60px rgba(0, 161, 75, 0.6);
       }
     }
-    
+
     .logo-title {
       font-size: 28px;
       font-weight: 700;
       letter-spacing: -0.5px;
       margin-bottom: 8px;
     }
-    
+
     .logo-title span {
       color: var(--primary);
     }
-    
+
     .logo-subtitle {
       color: var(--text-muted);
       font-size: 14px;
     }
-    
+
     .form-group {
       margin-bottom: 20px;
     }
-    
+
     .form-group label {
       display: block;
       font-size: 13px;
@@ -151,7 +151,7 @@
       margin-bottom: 8px;
       color: var(--text-secondary);
     }
-    
+
     .form-input {
       width: 100%;
       padding: 14px 18px;
@@ -163,17 +163,17 @@
       font-family: inherit;
       transition: all 0.25s ease;
     }
-    
+
     .form-input:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 4px var(--primary-glow);
     }
-    
+
     .form-input::placeholder {
       color: var(--text-muted);
     }
-    
+
     select.form-input {
       cursor: pointer;
       appearance: none;
@@ -183,7 +183,32 @@
       background-size: 18px;
       padding-right: 44px;
     }
-    
+
+    .email-input-group {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .email-input-group input {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+      flex: 1;
+    }
+
+    .email-suffix {
+      padding: 14px 14px;
+      background: rgba(124, 58, 237, 0.15);
+      border: 2px solid transparent;
+      border-left: none;
+      border-radius: 0 12px 12px 0;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+
     .btn {
       width: 100%;
       padding: 16px 24px;
@@ -199,26 +224,37 @@
       justify-content: center;
       gap: 10px;
     }
-    
+
     .btn-primary {
       background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
       color: white;
       box-shadow: 0 8px 30px var(--primary-glow);
     }
-    
+
     .btn-primary:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 40px var(--primary-glow);
     }
-    
+
     .btn-primary:active {
       transform: translateY(0);
     }
-    
+
+    .btn-secondary {
+      background: var(--bg-surface-light);
+      color: var(--text-secondary);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+    }
+
     .btn .material-icons {
       font-size: 20px;
     }
-    
+
     .divider {
       display: flex;
       align-items: center;
@@ -226,7 +262,7 @@
       color: var(--text-muted);
       font-size: 12px;
     }
-    
+
     .divider::before,
     .divider::after {
       content: '';
@@ -234,11 +270,11 @@
       height: 1px;
       background: rgba(255, 255, 255, 0.1);
     }
-    
+
     .divider span {
       padding: 0 16px;
     }
-    
+
     .info-box {
       background: rgba(124, 58, 237, 0.1);
       border: 1px solid rgba(124, 58, 237, 0.2);
@@ -248,28 +284,46 @@
       color: var(--text-secondary);
       line-height: 1.5;
     }
-    
+
     .info-box .material-icons {
       color: var(--primary);
       vertical-align: middle;
       margin-right: 8px;
     }
-    
+
+    .info-box-warning {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+    }
+
+    .info-box-warning .material-icons {
+      color: #f59e0b;
+    }
+
+    .info-box-success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .info-box-success .material-icons {
+      color: #10b981;
+    }
+
     .footer-text {
       text-align: center;
       margin-top: 24px;
       font-size: 12px;
       color: var(--text-muted);
     }
-    
+
     .loading {
       display: none;
     }
-    
+
     .loading.active {
       display: flex;
     }
-    
+
     .spinner {
       width: 20px;
       height: 20px;
@@ -278,11 +332,11 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
-    
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    
+
     .error-message {
       background: rgba(220, 38, 38, 0.15);
       border: 1px solid rgba(220, 38, 38, 0.3);
@@ -293,32 +347,156 @@
       margin-bottom: 20px;
       display: none;
     }
-    
+
     .error-message.active {
       display: block;
+    }
+
+    .success-message {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #10b981;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .success-message.active {
+      display: block;
+    }
+
+    .signed-in-as {
+      text-align: center;
+      padding: 12px 16px;
+      background: var(--bg-surface-light);
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .signed-in-as strong {
+      color: var(--text-primary);
+    }
+
+    .switch-account-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      margin-left: 6px;
+    }
+
+    .switch-account-link:hover {
+      text-decoration: underline;
+    }
+
+    .pending-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: rgba(245, 158, 11, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .pending-icon .material-icons {
+      font-size: 32px;
+      color: #f59e0b;
+    }
+
+    .pending-section {
+      text-align: center;
+    }
+
+    .pending-section h2 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .pending-section p {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 24px;
     }
   </style>
 </head>
 <body>
   <div class="bg-pattern"></div>
   <div class="grid-overlay"></div>
-  
+
   <div class="login-container">
     <div class="login-card">
       <div class="logo-section">
-        <div class="logo-icon">🏛️</div>
+        <div class="logo-icon">&#127963;&#65039;</div>
         <h1 class="logo-title"><span>KCMS</span> Benchmark Analyzer</h1>
         <p class="logo-subtitle">Kate Collins Middle School</p>
       </div>
-      
+
+      <? if (hasPendingRequest) { ?>
+      <!-- Pending Request State -->
+      <div class="pending-section">
+        <div class="pending-icon">
+          <span class="material-icons">hourglass_top</span>
+        </div>
+        <h2>Access Request Pending</h2>
+        <p>
+          Your request to access the Benchmark Analyzer has been submitted.
+          A school or division administrator will review your request.
+        </p>
+
+        <div class="info-box info-box-warning" style="text-align: left; margin-bottom: 20px;">
+          <span class="material-icons">info</span>
+          Signed in as <strong><?= user ? user.email : '' ?></strong>
+        </div>
+
+        <a class="btn btn-secondary" id="switchAccountPendingBtn"
+           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
+           target="_top" style="margin-bottom: 12px;">
+          <span class="material-icons">swap_horiz</span>
+          <span>Switch Google Account</span>
+        </a>
+
+        <a class="btn btn-secondary" href="<?= scriptUrl ?>" target="_top">
+          <span class="material-icons">refresh</span>
+          <span>Check Again</span>
+        </a>
+      </div>
+
+      <? } else { ?>
+      <!-- Access Request Form -->
+      <? if (user && user.email) { ?>
+      <div class="signed-in-as">
+        Signed in as <strong><?= user.email ?></strong>
+        <a class="switch-account-link"
+           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
+           target="_top">Switch</a>
+      </div>
+      <? } ?>
+
       <div id="errorMessage" class="error-message"></div>
-      
-      <form id="registrationForm">
+      <div id="successMessage" class="success-message"></div>
+
+      <form id="accessRequestForm">
         <div class="form-group">
           <label>Your Name</label>
           <input type="text" id="userName" class="form-input" placeholder="Enter your full name" required>
         </div>
-        
+
+        <div class="form-group">
+          <label>School Email</label>
+          <div class="email-input-group">
+            <input type="text" id="emailPrefix" class="form-input" placeholder="e.g. etruslow" required>
+            <span class="email-suffix">@waynesboro.k12.va.us</span>
+          </div>
+        </div>
+
         <div class="form-group">
           <label>School</label>
           <select id="userSchool" class="form-input" required>
@@ -326,75 +504,118 @@
             <option value="Kate Collins Middle School">Kate Collins Middle School</option>
           </select>
         </div>
-        
+
         <button type="submit" class="btn btn-primary" id="submitBtn">
-          <span class="btn-text">Get Started</span>
-          <span class="material-icons btn-icon">arrow_forward</span>
+          <span class="btn-text">Request Access</span>
+          <span class="material-icons btn-icon">send</span>
           <span class="loading">
             <span class="spinner"></span>
           </span>
         </button>
       </form>
-      
+
       <div class="divider"><span>SECURE ACCESS</span></div>
-      
+
       <div class="info-box">
         <span class="material-icons">verified_user</span>
-        Sign in with your <strong>@waynesboro.k12.va.us</strong> Google account. Your role will be automatically assigned based on your email.
+        Enter your <strong>@waynesboro.k12.va.us</strong> email username to request access.
+        An administrator will review and approve your request.
       </div>
-      
+
+      <? if (!user || !user.email) { ?>
+      <div style="margin-top: 16px;">
+        <a class="btn btn-secondary"
+           href="https://accounts.google.com/AccountChooser?continue=<?= scriptUrl ?>"
+           target="_top">
+          <span class="material-icons">login</span>
+          <span>Sign in with Google</span>
+        </a>
+      </div>
+      <? } ?>
+
       <p class="footer-text">
         By continuing, you agree to the division's data usage policies.
       </p>
+      <? } ?>
     </div>
   </div>
-  
+
   <script>
     var scriptUrl = '<?= scriptUrl ?>';
+    var hasPendingRequest = <?= hasPendingRequest ?>;
 
-    document.getElementById('registrationForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-
-      const name = document.getElementById('userName').value.trim();
-      const school = document.getElementById('userSchool').value;
-      const submitBtn = document.getElementById('submitBtn');
-      const errorMsg = document.getElementById('errorMessage');
-
-      if (!name || !school) {
-        errorMsg.textContent = 'Please fill in all fields.';
-        errorMsg.classList.add('active');
-        return;
+    if (!hasPendingRequest) {
+      <? if (user && user.email) { ?>
+      // Pre-fill the email prefix from the signed-in Google account
+      var currentEmail = '<?= user.email ?>';
+      if (currentEmail && currentEmail.indexOf('@waynesboro.k12.va.us') !== -1) {
+        document.getElementById('emailPrefix').value = currentEmail.split('@')[0];
       }
+      <? } ?>
 
-      // Show loading state
-      submitBtn.querySelector('.btn-text').style.display = 'none';
-      submitBtn.querySelector('.btn-icon').style.display = 'none';
-      submitBtn.querySelector('.loading').classList.add('active');
-      submitBtn.disabled = true;
-      errorMsg.classList.remove('active');
+      document.getElementById('accessRequestForm').addEventListener('submit', function(e) {
+        e.preventDefault();
 
-      google.script.run
-        .withSuccessHandler(function(user) {
-          // Navigate to dashboard by clicking a link with target="_top"
-          // This avoids the cross-origin error from accessing window.top.location directly
-          var link = document.createElement('a');
-          link.href = scriptUrl;
-          link.target = '_top';
-          document.body.appendChild(link);
-          link.click();
-        })
-        .withFailureHandler(function(error) {
-          errorMsg.textContent = error.message || 'Registration failed. Please try again.';
+        var name = document.getElementById('userName').value.trim();
+        var emailPrefix = document.getElementById('emailPrefix').value.trim().toLowerCase();
+        var school = document.getElementById('userSchool').value;
+        var submitBtn = document.getElementById('submitBtn');
+        var errorMsg = document.getElementById('errorMessage');
+        var successMsg = document.getElementById('successMessage');
+
+        // Validate email prefix (alphanumeric, dots, hyphens, underscores)
+        if (!/^[a-z0-9._-]+$/.test(emailPrefix)) {
+          errorMsg.textContent = 'Please enter a valid email username (letters, numbers, dots, hyphens).';
           errorMsg.classList.add('active');
+          successMsg.classList.remove('active');
+          return;
+        }
 
-          // Reset button
-          submitBtn.querySelector('.btn-text').style.display = 'inline';
-          submitBtn.querySelector('.btn-icon').style.display = 'inline';
-          submitBtn.querySelector('.loading').classList.remove('active');
-          submitBtn.disabled = false;
-        })
-        .registerUser(name, school);
-    });
+        if (!name || !school) {
+          errorMsg.textContent = 'Please fill in all fields.';
+          errorMsg.classList.add('active');
+          successMsg.classList.remove('active');
+          return;
+        }
+
+        // Show loading state
+        submitBtn.querySelector('.btn-text').style.display = 'none';
+        submitBtn.querySelector('.btn-icon').style.display = 'none';
+        submitBtn.querySelector('.loading').classList.add('active');
+        submitBtn.disabled = true;
+        errorMsg.classList.remove('active');
+        successMsg.classList.remove('active');
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            // Show success state
+            successMsg.textContent = result.message || 'Access request submitted! An administrator will review your request.';
+            successMsg.classList.add('active');
+            errorMsg.classList.remove('active');
+
+            // Hide the form and show pending message
+            document.getElementById('accessRequestForm').style.display = 'none';
+
+            // Reset button in case they come back
+            submitBtn.querySelector('.btn-text').style.display = 'inline';
+            submitBtn.querySelector('.btn-icon').style.display = 'inline';
+            submitBtn.querySelector('.loading').classList.remove('active');
+            submitBtn.disabled = false;
+          })
+          .withFailureHandler(function(error) {
+            errorMsg.textContent = error.message || 'Request failed. Please try again.';
+            errorMsg.classList.add('active');
+            successMsg.classList.remove('active');
+
+            // Reset button
+            submitBtn.querySelector('.btn-text').style.display = 'inline';
+            submitBtn.querySelector('.btn-icon').style.display = 'inline';
+            submitBtn.querySelector('.loading').classList.remove('active');
+            submitBtn.disabled = false;
+          })
+          .submitAccessRequest(emailPrefix, name, school);
+      });
+    }
   </script>
 </body>
 </html>

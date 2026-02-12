@@ -326,6 +326,11 @@
           <span class="material-icons">insights</span>
           Overview
         </button>
+        <button class="admin-tab" onclick="showAdminTab('requests')">
+          <span class="material-icons">person_add</span>
+          <span>Requests</span>
+          <span id="requestsBadge" style="background: #ef4444; color: white; border-radius: 10px; padding: 1px 7px; font-size: 11px; font-weight: 700; display: none; margin-left: 4px;">0</span>
+        </button>
         <button class="admin-tab" onclick="showAdminTab('users')">
           <span class="material-icons">people</span>
           Users
@@ -384,6 +389,38 @@
           <div class="loading-spinner">
             <div class="spinner"></div>
             <span>Loading statistics...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Access Requests Tab -->
+      <div class="admin-content" id="requestsContent">
+        <div class="card">
+          <div class="settings-header">
+            <span class="material-icons">person_add</span>
+            <h3>Pending Access Requests</h3>
+          </div>
+          <div class="card-body" style="padding: 0;">
+            <table class="users-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>School</th>
+                  <th>Requested</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="requestsTableBody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 40px;">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -580,9 +617,12 @@
     let allUsers = [];
     let adminList = { division: [], school: [] };
     
+    let allAccessRequests = [];
+
     document.addEventListener('DOMContentLoaded', function() {
       loadOverviewData();
       loadUsers();
+      loadAccessRequests();
       loadRenameAssessments();
       <? if (user.role === 'division_admin') { ?>
       loadAdminList();
@@ -835,6 +875,111 @@
     }
     <? } ?>
     
+    // ── Access Requests Tab ──
+
+    function loadAccessRequests() {
+      google.script.run
+        .withSuccessHandler(function(requests) {
+          allAccessRequests = requests || [];
+          renderAccessRequests();
+          updateRequestsBadge();
+        })
+        .withFailureHandler(function(error) {
+          document.getElementById('requestsTableBody').innerHTML =
+            '<tr><td colspan="7" style="text-align: center; color: var(--color-error);">Error loading requests</td></tr>';
+        })
+        .getAccessRequests();
+    }
+
+    function updateRequestsBadge() {
+      var pendingCount = allAccessRequests.filter(function(r) { return r.status === 'pending'; }).length;
+      var badge = document.getElementById('requestsBadge');
+      if (pendingCount > 0) {
+        badge.textContent = pendingCount;
+        badge.style.display = 'inline';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function renderAccessRequests() {
+      var tbody = document.getElementById('requestsTableBody');
+
+      if (allAccessRequests.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">No access requests</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = allAccessRequests.map(function(r) {
+        var statusClass = r.status === 'pending' ? 'role-school' :
+                          r.status === 'approved' ? 'role-teacher' : 'role-division';
+        var statusLabel = r.status === 'pending' ? 'Pending' :
+                          r.status === 'approved' ? 'Approved' : 'Denied';
+        var actions = '';
+        if (r.status === 'pending') {
+          actions =
+            '<button class="btn btn-primary" style="padding: 6px 14px; font-size: 13px;" onclick="approveRequest(\'' + r.id + '\')">' +
+              '<span class="material-icons" style="font-size: 16px;">check</span> Approve' +
+            '</button> ' +
+            '<button class="btn btn-ghost" style="padding: 6px 14px; font-size: 13px; color: var(--color-error);" onclick="denyRequest(\'' + r.id + '\')">' +
+              '<span class="material-icons" style="font-size: 16px;">close</span> Deny' +
+            '</button>';
+        }
+        return '<tr>' +
+          '<td><div class="user-avatar-sm">' + (r.name || r.email).charAt(0).toUpperCase() + '</div></td>' +
+          '<td><strong>' + (r.name || 'No name') + '</strong></td>' +
+          '<td style="color: var(--text-muted);">' + r.email + '</td>' +
+          '<td>' + (r.school || '-') + '</td>' +
+          '<td style="color: var(--text-muted);">' + formatDate(r.requested_at) + '</td>' +
+          '<td><span class="role-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+          '<td>' + actions + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function approveRequest(requestId) {
+      showConfirm(
+        'Approve Access Request?',
+        'This will create a user account and grant access to the Benchmark Analyzer.',
+        function() {
+          showLoading('Approving request...');
+          google.script.run
+            .withSuccessHandler(function(result) {
+              hideLoading();
+              showToast('Access approved for ' + (result.name || result.email), 'success');
+              loadAccessRequests();
+              loadUsers();
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              showToast('Error: ' + error.message, 'error');
+            })
+            .approveAccessRequest(requestId);
+        }
+      );
+    }
+
+    function denyRequest(requestId) {
+      showConfirm(
+        'Deny Access Request?',
+        'This will deny the access request. The user can submit a new request later.',
+        function() {
+          showLoading('Denying request...');
+          google.script.run
+            .withSuccessHandler(function() {
+              hideLoading();
+              showToast('Access request denied', 'success');
+              loadAccessRequests();
+            })
+            .withFailureHandler(function(error) {
+              hideLoading();
+              showToast('Error: ' + error.message, 'error');
+            })
+            .denyAccessRequest(requestId);
+        }
+      );
+    }
+
     // ── Rename Tab ──
 
     var renameAssessments = [];

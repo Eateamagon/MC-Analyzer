@@ -383,6 +383,32 @@ function saveDefaultSettings(settings) {
 }
 
 /**
+ * Gets unique teacher names for a given assessment (from ClassPeriods).
+ * Used by the admin Rename tab.
+ */
+function getTeachersForAssessment(assessmentId) {
+  var user = getCurrentUser();
+  if (!user || user.role === CONFIG.roles.TEACHER) {
+    throw new Error('Admin access required');
+  }
+
+  var normalId = String(assessmentId).trim();
+  var ss = getOrCreateDatabase();
+  var cpSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
+  if (!cpSheet || cpSheet.getLastRow() < 2) return [];
+
+  var data = cpSheet.getDataRange().getValues();
+  var teachers = {};
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] != null && String(data[i][0]).trim() === normalId) {
+      var name = String(data[i][3] || '').trim();
+      if (name) teachers[name] = true;
+    }
+  }
+  return Object.keys(teachers).sort();
+}
+
+/**
  * Exports all data for a school (admin function)
  */
 function exportSchoolData(school) {

@@ -336,6 +336,10 @@
           Admin List
         </button>
         <? } ?>
+        <button class="admin-tab" onclick="showAdminTab('rename')">
+          <span class="material-icons">edit</span>
+          Rename
+        </button>
         <button class="admin-tab" onclick="showAdminTab('settings')">
           <span class="material-icons">settings</span>
           Settings
@@ -480,6 +484,28 @@
       </div>
       <? } ?>
 
+      <!-- Rename Tab -->
+      <div class="admin-content" id="renameContent">
+        <div class="settings-card">
+          <div class="settings-header">
+            <span class="material-icons">edit</span>
+            <h3>Rename Teachers</h3>
+          </div>
+          <div class="settings-body">
+            <p style="color: var(--text-muted); margin-bottom: 20px;">
+              Select an assessment, then rename teacher names across all student data and class periods. Cached analysis results will be cleared automatically.
+            </p>
+            <div class="form-group">
+              <label>Select Assessment</label>
+              <select id="renameAssessmentSelect" class="form-input" onchange="loadTeachersForRename()">
+                <option value="">-- Choose an assessment --</option>
+              </select>
+            </div>
+            <div id="renameTeacherList" style="margin-top: 20px;"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Settings Tab -->
       <div class="admin-content" id="settingsContent">
         <div class="settings-card">
@@ -557,6 +583,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       loadOverviewData();
       loadUsers();
+      loadRenameAssessments();
       <? if (user.role === 'division_admin') { ?>
       loadAdminList();
       <? } ?>
@@ -808,6 +835,131 @@
     }
     <? } ?>
     
+    // ── Rename Tab ──
+
+    var renameAssessments = [];
+
+    function loadRenameAssessments() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          renameAssessments = assessments || [];
+          var select = document.getElementById('renameAssessmentSelect');
+          select.innerHTML = '<option value="">-- Choose an assessment --</option>';
+          renameAssessments.forEach(function(a) {
+            var opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = (a.name || 'Unnamed') +
+              (a.subject ? ' - ' + a.subject : '') +
+              ' (' + (a.student_count || 0) + ' students, ' + formatDate(a.date_uploaded) + ')';
+            select.appendChild(opt);
+          });
+        })
+        .getAssessmentList();
+    }
+
+    function loadTeachersForRename() {
+      var assessmentId = document.getElementById('renameAssessmentSelect').value;
+      var container = document.getElementById('renameTeacherList');
+
+      if (!assessmentId) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML =
+        '<div class="loading-spinner" style="padding:24px;">' +
+          '<div class="spinner" style="width:24px;height:24px;"></div>' +
+          '<span>Loading teachers...</span>' +
+        '</div>';
+
+      google.script.run
+        .withSuccessHandler(function(teachers) {
+          if (!teachers || teachers.length === 0) {
+            container.innerHTML =
+              '<p style="color: var(--text-muted); padding: 12px;">No teachers found for this assessment.</p>';
+            return;
+          }
+
+          container.innerHTML = teachers.map(function(name) {
+            var escaped = name.replace(/"/g, '&quot;');
+            return '<div class="admin-item" data-teacher="' + escaped + '">' +
+              '<div class="admin-item-info">' +
+                '<div class="user-avatar-sm">' + name.charAt(0).toUpperCase() + '</div>' +
+                '<div>' +
+                  '<div class="admin-item-email">' + name + '</div>' +
+                  '<div class="admin-item-type">Teacher</div>' +
+                '</div>' +
+              '</div>' +
+              '<button class="btn btn-secondary" style="padding:8px 16px;" onclick="showRenameTeacherModal(\'' + name.replace(/'/g, "\\'") + '\')">' +
+                '<span class="material-icons" style="font-size:16px;">edit</span>' +
+                ' Rename' +
+              '</button>' +
+            '</div>';
+          }).join('');
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML =
+            '<p style="color: var(--color-error); padding: 12px;">Error: ' + error.message + '</p>';
+        })
+        .getTeachersForAssessment(assessmentId);
+    }
+
+    function showRenameTeacherModal(oldName) {
+      var assessmentId = document.getElementById('renameAssessmentSelect').value;
+      if (!assessmentId) return;
+
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'renameTeacherModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 420px;">' +
+          '<div class="modal-header"><h2>Rename Teacher</h2></div>' +
+          '<div class="modal-body">' +
+            '<div class="form-group">' +
+              '<label>Current Name</label>' +
+              '<input type="text" class="form-input" value="' + oldName.replace(/"/g, '&quot;') + '" disabled style="opacity:0.6;">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label>New Name</label>' +
+              '<input type="text" id="newTeacherName" class="form-input" value="' + oldName.replace(/"/g, '&quot;') + '">' +
+            '</div>' +
+            '<p style="font-size:12px; color:var(--text-muted); margin-top:8px;">This will update the teacher name across all student data and class periods for this assessment. Cached analysis results will be cleared.</p>' +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'renameTeacherModal\').remove()">Cancel</button>' +
+            '<button class="btn btn-primary" id="renameTeacherSaveBtn">Save</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      var input = document.getElementById('newTeacherName');
+      input.focus();
+      input.select();
+
+      document.getElementById('renameTeacherSaveBtn').addEventListener('click', function() {
+        var newName = input.value.trim();
+        if (!newName) { showToast('Name cannot be empty', 'error'); return; }
+        if (newName === oldName) { modal.remove(); return; }
+
+        var btn = document.getElementById('renameTeacherSaveBtn');
+        var restore = setBtnLoading(btn, 'Saving...');
+
+        google.script.run
+          .withSuccessHandler(function() {
+            restore();
+            modal.remove();
+            showToast('Teacher renamed successfully!', 'success');
+            // Refresh the teacher list
+            loadTeachersForRename();
+          })
+          .withFailureHandler(function(error) {
+            restore();
+            showToast('Error: ' + error.message, 'error');
+          })
+          .renameTeacher(assessmentId, oldName, newName);
+      });
+    }
+
     function saveDefaultSettings() {
       showToast('Default settings saved', 'success');
     }

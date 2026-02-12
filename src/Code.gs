@@ -281,6 +281,11 @@ function getUserData(email) {
 function registerUser(name, school) {
   const email = Session.getActiveUser().getEmail();
   if (!email) throw new Error('Not authenticated');
+
+  // Validate email domain
+  if (!email.toLowerCase().endsWith('@waynesboro.k12.va.us')) {
+    throw new Error('Access restricted to @waynesboro.k12.va.us accounts only.');
+  }
   
   const ss = getOrCreateDatabase();
   const sheet = ss.getSheetByName(CONFIG.sheets.users);

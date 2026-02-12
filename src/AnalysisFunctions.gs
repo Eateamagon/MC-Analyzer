@@ -637,6 +637,129 @@ function deleteExistingAnalysis(assessmentId) {
 }
 
 /**
+ * Generates small groups from multiple assessment data sources.
+ * Merges per-student SOL profiles across assessments, then runs the
+ * group-formation algorithm.  Students are matched by student_id.
+ *
+ * @param {string[]} assessmentIds  - Array of assessment IDs to pull data from
+ * @return {Object} { groups: [...], sources: [...] }
+ */
+function generateMultiSourceSmallGroups(assessmentIds) {
+  var user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('Not authenticated');
+  var settings = user.settings || CONFIG.defaults;
+
+  // Collect per-student profiles across all assessments.
+  // Key = student_id, value = { name, teacher, sols: { solName: {c, t} }, periods: {} }
+  var studentProfiles = {};
+  var sourceNames = [];
+
+  assessmentIds.forEach(function(assessmentId) {
+    var data = getAssessmentData(assessmentId);
+    sourceNames.push(data.assessment.name || assessmentId);
+
+    var header = data.header;
+    var solRow = data.solRow;
+    var students = data.students;
+    var periodMap = data.periodMap || {};
+    var questions = parseQuestions(header, solRow);
+    var teacherCol = findColIndex(header, 'teacher');
+    var firstNameCol = findColIndex(header, 'first_name');
+    var lastNameCol = findColIndex(header, 'last_name');
+    var studentIdCol = findColIndex(header, 'student_id');
+
+    students.forEach(function(r) {
+      var sid = r[studentIdCol];
+      if (!sid) return;
+      var sKey = String(sid).trim();
+      var name = ((r[firstNameCol] || '') + ' ' + (r[lastNameCol] || '')).trim();
+      var teacher = r[teacherCol] || 'Unknown';
+      var period = (periodMap[sKey]) ? periodMap[sKey] : 'Unknown';
+
+      if (!studentProfiles[sKey]) {
+        studentProfiles[sKey] = {
+          id: sKey,
+          name: name,
+          teacher: teacher,
+          period: period,
+          sols: {}
+        };
+      }
+      // Keep most recent teacher/name (last assessment wins for metadata)
+      studentProfiles[sKey].name = name;
+      studentProfiles[sKey].teacher = teacher;
+      if (period !== 'Unknown') studentProfiles[sKey].period = period;
+
+      // Accumulate SOL scores across assessments
+      questions.forEach(function(q) {
+        var sc = r[q.scoreColIndex];
+        if (!studentProfiles[sKey].sols[q.sol]) {
+          studentProfiles[sKey].sols[q.sol] = { c: 0, t: 0 };
+        }
+        if (sc == 1 || sc == '1') {
+          studentProfiles[sKey].sols[q.sol].c++;
+          studentProfiles[sKey].sols[q.sol].t++;
+        } else if (sc == 0 || sc == '0') {
+          studentProfiles[sKey].sols[q.sol].t++;
+        }
+      });
+    });
+  });
+
+  // Convert profiles to the format the grouping algorithm expects,
+  // grouped by teacher then period.
+  var byTeacher = {};
+  Object.keys(studentProfiles).forEach(function(sKey) {
+    var p = studentProfiles[sKey];
+    if (!byTeacher[p.teacher]) byTeacher[p.teacher] = {};
+    if (!byTeacher[p.teacher][p.period]) byTeacher[p.teacher][p.period] = [];
+
+    // Determine weak SOLs (below threshold across combined data)
+    var weak = [];
+    Object.keys(p.sols).forEach(function(sol) {
+      var s = p.sols[sol];
+      if (s.t > 0 && ((s.c / s.t) * 100) < (settings.sgThreshold || 70)) {
+        weak.push(sol);
+      }
+    });
+
+    if (weak.length > 0) {
+      byTeacher[p.teacher][p.period].push({
+        name: p.name,
+        sols: weak,
+        id: p.id
+      });
+    }
+  });
+
+  // Run group formation per teacher per period
+  var groups = [];
+  Object.keys(byTeacher).sort().forEach(function(teacher) {
+    Object.keys(byTeacher[teacher]).sort().forEach(function(period) {
+      var profiles = byTeacher[teacher][period];
+      var periodGroups = formGroups(profiles, settings);
+      periodGroups.forEach(function(g, idx) {
+        groups.push({
+          teacher: teacher,
+          period: period,
+          groupNumber: idx + 1,
+          students: g.students.map(function(s) { return s.name; }),
+          sharedWeakSOLs: g.shared,
+          studentCount: g.students.length,
+          isUnknownPeriod: period === 'Unknown'
+        });
+      });
+    });
+  });
+
+  return {
+    groups: groups,
+    sources: sourceNames,
+    studentCount: Object.keys(studentProfiles).length
+  };
+}
+
+/**
  * Compares two assessments and returns a comparison report.
  * Each assessment must already be uploaded. Runs analysis on both
  * (if not already cached) and produces per-teacher & per-SOL deltas.

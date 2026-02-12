@@ -372,14 +372,18 @@
       if (!selectedA || !selectedB) return;
       var btn = document.getElementById('runCompareBtn');
       var restore = setBtnLoading(btn, 'Comparing...');
+      showLoading('Comparing assessments... This may take a moment.');
 
       google.script.run
         .withSuccessHandler(function(results) {
+          hideLoading();
           restore();
           comparisonResults = results;
           displayComparison();
+          showToast('Comparison complete!', 'success');
         })
         .withFailureHandler(function(err) {
+          hideLoading();
           restore();
           showToast('Comparison failed: ' + err.message, 'error');
         })

@@ -830,12 +830,16 @@
       
       let html = '';
       analysisResults.teacherSummaries.forEach(ts => {
+        var escapedName = (ts.teacher || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         html += `
           <div class="teacher-summary-card" data-teacher="${ts.teacher}">
             <div class="teacher-summary-header" onclick="toggleSummary(this)">
               <div>
                 <strong>${ts.teacher}</strong>
-                <span style="color: var(--text-muted); margin-left: 12px;">${ts.studentCount} students</span>
+                <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;margin-left:8px;" onclick="event.stopPropagation(); renameTeacher('${escapedName}')">
+                  <span class="material-icons" style="font-size:14px;">edit</span>
+                </button>
+                <span style="color: var(--text-muted); margin-left: 4px;">${ts.studentCount} students</span>
               </div>
               <div class="flex items-center gap-2">
                 <span class="stat-badge ${getScoreClass(ts.average)}">${ts.average}% avg</span>
@@ -1229,6 +1233,7 @@
     function downloadExcel() {
       var btn = event ? event.target.closest('.btn') : null;
       var restore = btn ? setBtnLoading(btn, 'Generating...') : function(){};
+      showToast('Generating Excel file...', 'info');
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -1248,6 +1253,7 @@
     function downloadPDF() {
       var btn = event ? event.target.closest('.btn') : null;
       var restore = btn ? setBtnLoading(btn, 'Generating...') : function(){};
+      showToast('Generating PDF report...', 'info');
 
       google.script.run
         .withSuccessHandler(function(result) {
@@ -1262,6 +1268,65 @@
           showToast('Download failed: ' + error.message, 'error');
         })
         .generatePDFReport(currentAssessmentId, {});
+    }
+
+    function renameTeacher(oldName) {
+      var modal = document.createElement('div');
+      modal.className = 'modal active';
+      modal.id = 'renameTeacherModal';
+      modal.innerHTML =
+        '<div class="modal-content" style="max-width: 420px;">' +
+          '<div class="modal-header"><h2>Rename Teacher</h2></div>' +
+          '<div class="modal-body">' +
+            '<div class="form-group">' +
+              '<label>Current Name</label>' +
+              '<input type="text" class="form-input" value="' + oldName.replace(/"/g, '&quot;') + '" disabled style="opacity:0.6;">' +
+            '</div>' +
+            '<div class="form-group">' +
+              '<label>New Name</label>' +
+              '<input type="text" id="newTeacherName" class="form-input" value="' + oldName.replace(/"/g, '&quot;') + '">' +
+            '</div>' +
+            '<p style="font-size:12px; color:var(--text-muted); margin-top:8px;">This will update the teacher name across all student data and class periods for this assessment. Cached analysis results will be cleared so the next analysis run uses the new name.</p>' +
+          '</div>' +
+          '<div class="modal-footer">' +
+            '<button class="btn btn-ghost" onclick="document.getElementById(\'renameTeacherModal\').remove()">Cancel</button>' +
+            '<button class="btn btn-primary" id="renameTeacherSaveBtn">Save</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      var input = document.getElementById('newTeacherName');
+      input.focus();
+      input.select();
+
+      document.getElementById('renameTeacherSaveBtn').addEventListener('click', function() {
+        var newName = input.value.trim();
+        if (!newName) { showToast('Name cannot be empty', 'error'); return; }
+        if (newName === oldName) { modal.remove(); return; }
+
+        var btn = document.getElementById('renameTeacherSaveBtn');
+        var restore = setBtnLoading(btn, 'Saving...');
+        showToast('Renaming teacher...', 'info');
+
+        google.script.run
+          .withSuccessHandler(function() {
+            restore();
+            modal.remove();
+            showToast('Teacher renamed. Re-run analysis to see updated results.', 'success');
+            // Clear local cached results since they have the old name
+            analysisResults = null;
+            document.getElementById('noResultsMessage').style.display = 'flex';
+            document.getElementById('noResultsMessage').innerHTML =
+              '<span class="material-icons" style="font-size: 64px; color: var(--primary); margin-bottom: 16px;">analytics</span>' +
+              '<h3 style="margin-bottom: 8px;">Teacher Renamed</h3>' +
+              '<p style="color: var(--text-muted); margin-bottom: 24px;">Click "Run Analysis" to regenerate results with the updated teacher name.</p>';
+          })
+          .withFailureHandler(function(error) {
+            restore();
+            showToast('Error: ' + error.message, 'error');
+          })
+          .renameTeacher(currentAssessmentId, oldName, newName);
+      });
     }
 
     function createTeacherFiles() {

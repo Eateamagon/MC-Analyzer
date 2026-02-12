@@ -1062,6 +1062,151 @@ function getSchoolsList() {
 }
 
 /**
+ * Renames an assessment. Checks ownership/role before allowing.
+ */
+function renameAssessment(assessmentId, newName) {
+  const user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('Not authenticated');
+  if (!newName || !newName.trim()) throw new Error('Name cannot be empty');
+
+  const normalId = String(assessmentId).trim();
+  const ss = getOrCreateDatabase();
+  const sheet = ss.getSheetByName(CONFIG.sheets.assessments);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+
+  var idCol = headers.indexOf('id');
+  if (idCol === -1) idCol = 0;
+  var nameCol = headers.indexOf('name');
+  if (nameCol === -1) throw new Error('Name column not found');
+  var emailCol = headers.indexOf('teacher_email');
+  var schoolCol = headers.indexOf('school');
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][idCol] != null && String(data[i][idCol]).trim() === normalId) {
+      // Check permission
+      if (user.role === CONFIG.roles.TEACHER && emailCol !== -1 &&
+          data[i][emailCol] !== user.email) {
+        throw new Error('You can only rename your own assessments');
+      }
+      if (user.role === CONFIG.roles.SCHOOL_ADMIN && schoolCol !== -1 &&
+          data[i][schoolCol] !== user.school) {
+        throw new Error('You can only rename assessments from your school');
+      }
+
+      sheet.getRange(i + 1, nameCol + 1).setValue(newName.trim());
+      return { success: true };
+    }
+  }
+  throw new Error('Assessment not found');
+}
+
+/**
+ * Renames a teacher across all data for an assessment.
+ * Updates RawData (student rows), ClassPeriods, and AnalysisResults.
+ */
+function renameTeacher(assessmentId, oldName, newName) {
+  const user = getCurrentUser();
+  if (!user || user.isNewUser) throw new Error('Not authenticated');
+  if (!newName || !newName.trim()) throw new Error('New name cannot be empty');
+  if (user.role === CONFIG.roles.TEACHER) {
+    // Teachers can rename teachers in their own assessments
+  }
+
+  const normalId = String(assessmentId).trim();
+  const ss = getOrCreateDatabase();
+  var updatedCount = 0;
+
+  // 1. Update ClassPeriods sheet (column 4 = teacher)
+  var cpSheet = ss.getSheetByName(CONFIG.sheets.classPeriods);
+  if (cpSheet && cpSheet.getLastRow() > 1) {
+    var cpData = cpSheet.getDataRange().getValues();
+    for (var i = 1; i < cpData.length; i++) {
+      if (cpData[i][0] != null && String(cpData[i][0]).trim() === normalId &&
+          String(cpData[i][3]).trim() === oldName.trim()) {
+        cpSheet.getRange(i + 1, 4).setValue(newName.trim());
+        updatedCount++;
+      }
+    }
+  }
+
+  // 2. Update RawData - the consolidated students JSON blob
+  var rawSheet = ss.getSheetByName(CONFIG.sheets.rawData);
+  if (rawSheet && rawSheet.getLastRow() > 1) {
+    var rawData = rawSheet.getDataRange().getValues();
+    for (var i = 1; i < rawData.length; i++) {
+      if (rawData[i][0] != null && String(rawData[i][0]).trim() === normalId) {
+        var rowType = rawData[i][2];
+        if (rowType === 'students' || rowType === 'student') {
+          try {
+            var parsed = JSON.parse(rawData[i][3]);
+            var changed = false;
+
+            if (rowType === 'students') {
+              // consolidated: array of student rows (each is an array)
+              // Need to find the teacher column in the header
+              // Read header row first
+              var headerRow = null;
+              for (var h = 1; h < rawData.length; h++) {
+                if (rawData[h][0] != null && String(rawData[h][0]).trim() === normalId && rawData[h][2] === 'header') {
+                  headerRow = JSON.parse(rawData[h][3]);
+                  break;
+                }
+              }
+              if (headerRow) {
+                var teacherColIdx = -1;
+                for (var c = 0; c < headerRow.length; c++) {
+                  if (String(headerRow[c]).toLowerCase().replace(/[_\s]/g, '') === 'teacher') {
+                    teacherColIdx = c;
+                    break;
+                  }
+                }
+                if (teacherColIdx !== -1) {
+                  for (var s = 0; s < parsed.length; s++) {
+                    if (String(parsed[s][teacherColIdx]).trim() === oldName.trim()) {
+                      parsed[s][teacherColIdx] = newName.trim();
+                      changed = true;
+                    }
+                  }
+                }
+              }
+            }
+
+            if (changed) {
+              rawSheet.getRange(i + 1, 4).setValue(JSON.stringify(parsed));
+            }
+          } catch (e) {
+            Logger.log('renameTeacher parse error row ' + i + ': ' + e.message);
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Delete cached analysis results so next run uses the new name
+  try {
+    var arSheet = ss.getSheetByName(CONFIG.sheets.analysisResults);
+    if (arSheet && arSheet.getLastRow() > 1) {
+      var arData = arSheet.getDataRange().getValues();
+      var rowsToDelete = [];
+      for (var i = 1; i < arData.length; i++) {
+        if (arData[i][0] != null && String(arData[i][0]).trim() === normalId) {
+          rowsToDelete.push(i + 1);
+        }
+      }
+      // Delete from bottom to top to preserve row indices
+      for (var d = rowsToDelete.length - 1; d >= 0; d--) {
+        arSheet.deleteRow(rowsToDelete[d]);
+      }
+    }
+  } catch (e) {
+    Logger.log('renameTeacher cleanup error: ' + e.message);
+  }
+
+  return { success: true, updatedCount: updatedCount };
+}
+
+/**
  * Gets configuration for client-side use
  */
 function getClientConfig() {

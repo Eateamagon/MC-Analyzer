@@ -824,4 +824,50 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLICK / LOADING FEEDBACK
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Assessment cards grey out banner on click */
+.assessment-card.loading-card {
+  pointer-events: none;
+  opacity: 0.6;
+}
+.assessment-card.loading-card .card-banner {
+  background: linear-gradient(90deg, var(--bg-hover) 0%, var(--bg-surface-light) 100%) !important;
+  animation: pulse-banner 1.2s ease-in-out infinite;
+}
+@keyframes pulse-banner {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Nav items show active state on click */
+.nav-item.nav-loading {
+  background: var(--bg-hover);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Generic button pressed feedback */
+.btn.btn-pressed {
+  transform: scale(0.96) !important;
+  opacity: 0.8;
+}
+
+/* Assessment items (dashboard) loading */
+.assessment-item.loading-item {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.assessment-item.loading-item .assessment-arrow {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Assessment option (compare page) loading */
+.assessment-option.loading-option {
+  pointer-events: none;
+  opacity: 0.5;
+}
 </style>

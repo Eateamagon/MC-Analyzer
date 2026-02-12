@@ -579,12 +579,13 @@
             </div>
           </div>
           <div class="card-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-secondary" onclick="viewAssessment('${a.id}', event)">
+            <button class="btn btn-primary" onclick="viewAssessment('${a.id}', event)">
               <span class="material-icons">analytics</span>
               Analyze
             </button>
             <button class="btn btn-secondary" onclick="renameAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
               <span class="material-icons">edit</span>
+              Rename
             </button>
             <button class="btn btn-ghost" onclick="deleteAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
               <span class="material-icons">delete</span>

@@ -598,29 +598,116 @@
     
     function handleFile(file) {
       uploadedFile = file;
-      
+
       const reader = new FileReader();
       reader.onload = (e) => {
         csvContent = e.target.result;
-        
+
         // Display file info
         document.getElementById('fileName').textContent = file.name;
         document.getElementById('fileSize').textContent = formatFileSize(file.size);
         document.getElementById('fileInfo').classList.add('active');
         document.getElementById('step1Next').disabled = false;
-        
+
         // Try to detect assessment name from file
         const baseName = file.name.replace('.csv', '').replace(/_/g, ' ');
         document.getElementById('assessmentName').value = baseName;
-        
+
+        // Auto-detect metadata from filename and CSV
+        autoDetectMetadata(baseName, csvContent);
+
         showToast('File loaded successfully!', 'success');
       };
-      
+
       reader.onerror = () => {
         showToast('Error reading file', 'error');
       };
-      
+
       reader.readAsText(file);
+    }
+
+    function autoDetectMetadata(name, csv) {
+      var text = name.toLowerCase();
+
+      // Detect subject
+      var subjectMap = {
+        'math': 'Math',
+        'algebra': 'Math',
+        'geometry': 'Math',
+        'ela': 'English',
+        'english': 'English',
+        'language arts': 'English',
+        'reading': 'English',
+        'writing': 'English',
+        'science': 'Science',
+        'biology': 'Science',
+        'chemistry': 'Science',
+        'physics': 'Science',
+        'civics': 'Civics',
+        'social studies': 'Civics',
+        'history': 'Civics',
+        'government': 'Civics'
+      };
+      var subjectEl = document.getElementById('assessmentSubject');
+      if (!subjectEl.value) {
+        for (var key in subjectMap) {
+          if (text.indexOf(key) !== -1) {
+            subjectEl.value = subjectMap[key];
+            break;
+          }
+        }
+      }
+
+      // Detect grade level
+      var gradeEl = document.getElementById('gradeLevel');
+      if (!gradeEl.value) {
+        var gradeMatch = text.match(/(?:grade|gr\.?)\s*(\d{1,2})/i) ||
+                         text.match(/(\d{1,2})(?:st|nd|rd|th)\s*grade/i) ||
+                         text.match(/\b([6-8])\s*(?:math|ela|english|science|civics)/i);
+        if (gradeMatch) {
+          var g = parseInt(gradeMatch[1], 10);
+          if (g >= 1 && g <= 12) gradeEl.value = String(g);
+        }
+      }
+
+      // Detect benchmark type (Q1-Q4, Formative, Summative)
+      var typeEl = document.getElementById('assessmentType');
+      if (!typeEl.value) {
+        var qMatch = text.match(/\bq([1-4])\b/) || text.match(/\bquarter\s*([1-4])\b/) ||
+                     text.match(/\bbenchmark\s*q([1-4])\b/) || text.match(/\bq([1-4])\s*benchmark\b/);
+        if (qMatch) {
+          typeEl.value = 'Benchmark Q' + qMatch[1];
+        } else if (/\bformative\b/.test(text)) {
+          typeEl.value = 'Formative';
+        } else if (/\bsummative\b/.test(text)) {
+          typeEl.value = 'Summative';
+        }
+      }
+
+      // Detect date from filename (patterns: 2025-01-15, 01/15/2025, Jan 2025, etc.)
+      var dateEl = document.getElementById('dateAdministered');
+      if (!dateEl.value) {
+        // Try ISO-ish: 2025-01-15 or 20250115
+        var isoMatch = text.match(/\b(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})\b/);
+        if (isoMatch) {
+          dateEl.value = isoMatch[1] + '-' + isoMatch[2].padStart(2, '0') + '-' + isoMatch[3].padStart(2, '0');
+        } else {
+          // Try US format: 01/15/2025 or 1-15-2025
+          var usMatch = text.match(/\b(\d{1,2})[-\/](\d{1,2})[-\/](20\d{2})\b/);
+          if (usMatch) {
+            dateEl.value = usMatch[3] + '-' + usMatch[1].padStart(2, '0') + '-' + usMatch[2].padStart(2, '0');
+          }
+        }
+      }
+
+      // If still no date, try to find one in the first few rows of CSV
+      if (!dateEl.value && csv) {
+        var lines = csv.split('\n').slice(0, 5).join(' ').toLowerCase();
+        var csvDateMatch = lines.match(/\b(20\d{2})[-\/](\d{1,2})[-\/](\d{1,2})\b/);
+        if (csvDateMatch) {
+          dateEl.value = csvDateMatch[1] + '-' + csvDateMatch[2].padStart(2, '0') + '-' + csvDateMatch[3].padStart(2, '0');
+        }
+      }
     }
     
     function removeFile() {
@@ -695,11 +782,10 @@
           currentAssessmentId = result.assessmentId;
           studentsList = result.students;
 
-          showToast('Uploaded ' + result.studentCount + ' students with ' + result.questionCount + ' questions', 'success');
+          showToast('Uploaded ' + result.studentCount + ' students with ' + result.questionCount + ' questions. Running analysis...', 'success');
 
-          // Build periods list
-          buildPeriodsList();
-          goToStep(3);
+          // Auto-run analysis immediately after upload
+          autoRunAnalysis(currentAssessmentId);
         })
         .withFailureHandler(function(error) {
           hideLoading();
@@ -917,6 +1003,38 @@
       );
     }
     
+    function autoRunAnalysis(assessmentId) {
+      showLoading('Running analysis...');
+      var progressNote = document.querySelector('#loadingOverlay .loading-message');
+      if (progressNote) {
+        progressNote.innerHTML = 'Analyzing assessment data...<br><small style="opacity:0.7;">This may take a moment for large datasets.</small>';
+      }
+
+      var options = {
+        itemAnalysis: true,
+        smallGroups: true,
+        heatmaps: true,
+        sendEmail: false
+      };
+
+      google.script.run
+        .withSuccessHandler(function() {
+          hideLoading();
+          showToast('Analysis complete! Redirecting...', 'success');
+          window.location.href = SCRIPT_URL + '?page=analysis&id=' + assessmentId;
+        })
+        .withFailureHandler(function(error) {
+          hideLoading();
+          // Analysis failed but upload succeeded — still go to analysis page
+          console.log('Auto-analysis error:', error.message);
+          showToast('Upload complete. Analysis can be run from the results page.', 'info');
+          setTimeout(function() {
+            window.location.href = SCRIPT_URL + '?page=analysis&id=' + assessmentId;
+          }, 1500);
+        })
+        .runAnalysis(assessmentId, options);
+    }
+
     function savePeriods() {
       const periodData = collectPeriodData();
       var btn = event ? event.target.closest('.btn') : null;

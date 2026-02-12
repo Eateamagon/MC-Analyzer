@@ -518,6 +518,45 @@
       renderAssessments();
     }
     
+    function renderAssessmentCard(a) {
+      var dateInfo = a.date_administered ? formatDateShort(a.date_administered) : formatDateShort(a.date_uploaded);
+      var dateLabel = a.date_administered ? 'Administered' : 'Uploaded';
+      return '<div class="assessment-card" onclick="viewAssessment(\'' + a.id + '\', event)">' +
+        '<div class="card-banner ' + (a.status === 'pending_periods' ? 'pending' : '') + '"></div>' +
+        '<div class="card-content">' +
+          '<div class="card-header">' +
+            '<div>' +
+              '<div class="card-title">' + (a.name || 'Unnamed Assessment') + '</div>' +
+              '<div class="card-school">' + (a.school || 'No school assigned') + '</div>' +
+            '</div>' +
+            '<span class="card-badge ' + (a.status === 'ready' ? 'badge-ready' : 'badge-pending') + '">' +
+              (a.status === 'ready' ? 'Analyzed' : 'Needs Analysis') +
+            '</span>' +
+          '</div>' +
+          '<div class="card-meta">' +
+            (a.subject ? '<span class="meta-tag"><span class="material-icons">book</span>' + a.subject + '</span>' : '') +
+            (a.grade_level ? '<span class="meta-tag"><span class="material-icons">school</span>Grade ' + a.grade_level + '</span>' : '') +
+            (a.assessment_type ? '<span class="meta-tag"><span class="material-icons">assignment</span>' + a.assessment_type + '</span>' : '') +
+          '</div>' +
+          '<div class="card-stats">' +
+            '<div class="stat"><div class="stat-number">' + (a.student_count || 0) + '</div><div class="stat-label">Students</div></div>' +
+            '<div class="stat"><div class="stat-number">' + (a.question_count || 0) + '</div><div class="stat-label">Questions</div></div>' +
+            '<div class="stat"><div class="stat-number">' + dateInfo + '</div><div class="stat-label">' + dateLabel + '</div></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="card-actions" onclick="event.stopPropagation()">' +
+          '<button class="btn btn-primary" onclick="viewAssessment(\'' + a.id + '\', event)">' +
+            '<span class="material-icons">analytics</span>' +
+            (a.status === 'ready' ? 'View Results' : 'Run Analysis') +
+          '</button>' +
+          '<button class="btn btn-secondary" onclick="editAssessment(\'' + a.id + '\')">' +
+            '<span class="material-icons">edit</span>Edit</button>' +
+          '<button class="btn btn-ghost" onclick="deleteAssessment(\'' + a.id + '\', \'' + (a.name || '').replace(/'/g, "\\'") + '\')">' +
+            '<span class="material-icons">delete</span></button>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderAssessments() {
       const container = document.getElementById('assessmentsContainer');
       container.className = currentView === 'list' ? 'assessments-grid list-view' : 'assessments-grid';
@@ -543,56 +582,34 @@
       const end = start + itemsPerPage;
       const pageAssessments = filteredAssessments.slice(start, end);
       
-      container.innerHTML = pageAssessments.map(a => `
-        <div class="assessment-card" onclick="viewAssessment('${a.id}', event)">
-          <div class="card-banner ${a.status === 'pending_periods' ? 'pending' : ''}"></div>
-          <div class="card-content">
-            <div class="card-header">
-              <div>
-                <div class="card-title">${a.name || 'Unnamed Assessment'}</div>
-                <div class="card-school">${a.school || 'No school assigned'}</div>
-              </div>
-              <span class="card-badge ${a.status === 'ready' ? 'badge-ready' : 'badge-pending'}">
-                ${a.status === 'ready' ? 'Ready' : 'Setup'}
-              </span>
-            </div>
+      // Separate into completed (ready) and uncompleted (pending_periods)
+      var completed = pageAssessments.filter(function(a) { return a.status === 'ready'; });
+      var uncompleted = pageAssessments.filter(function(a) { return a.status !== 'ready'; });
 
-            <div class="card-meta">
-              ${a.subject ? `<span class="meta-tag"><span class="material-icons">book</span>${a.subject}</span>` : ''}
-              ${a.grade_level ? `<span class="meta-tag"><span class="material-icons">school</span>Grade ${a.grade_level}</span>` : ''}
-              ${a.assessment_type ? `<span class="meta-tag"><span class="material-icons">assignment</span>${a.assessment_type}</span>` : ''}
-            </div>
+      var html = '';
 
-            <div class="card-stats">
-              <div class="stat">
-                <div class="stat-number">${a.student_count || 0}</div>
-                <div class="stat-label">Students</div>
-              </div>
-              <div class="stat">
-                <div class="stat-number">${a.question_count || 0}</div>
-                <div class="stat-label">Questions</div>
-              </div>
-              <div class="stat">
-                <div class="stat-number">${formatDateShort(a.date_uploaded)}</div>
-                <div class="stat-label">Uploaded</div>
-              </div>
-            </div>
-          </div>
-          <div class="card-actions" onclick="event.stopPropagation()">
-            <button class="btn btn-primary" onclick="viewAssessment('${a.id}', event)">
-              <span class="material-icons">analytics</span>
-              Analyze
-            </button>
-            <button class="btn btn-secondary" onclick="editAssessment('${a.id}')">
-              <span class="material-icons">edit</span>
-              Edit
-            </button>
-            <button class="btn btn-ghost" onclick="deleteAssessment('${a.id}', '${(a.name || '').replace(/'/g, "\\'")}')">
-              <span class="material-icons">delete</span>
-            </button>
-          </div>
-        </div>
-      `).join('');
+      if (uncompleted.length > 0) {
+        html += '<div class="section-divider" style="grid-column:1/-1;display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+          '<span class="material-icons" style="color:var(--color-monitor);">pending_actions</span>' +
+          '<h3 style="font-size:15px;font-weight:600;color:var(--color-monitor);margin:0;">Needs Analysis (' + uncompleted.length + ')</h3>' +
+          '<div style="flex:1;height:1px;background:rgba(245,158,11,0.2);"></div>' +
+        '</div>';
+        html += uncompleted.map(function(a) { return renderAssessmentCard(a); }).join('');
+      }
+
+      if (completed.length > 0) {
+        if (uncompleted.length > 0) {
+          html += '<div style="grid-column:1/-1;height:8px;"></div>';
+        }
+        html += '<div class="section-divider" style="grid-column:1/-1;display:flex;align-items:center;gap:12px;margin-bottom:8px;">' +
+          '<span class="material-icons" style="color:var(--color-strength);">check_circle</span>' +
+          '<h3 style="font-size:15px;font-weight:600;color:var(--color-strength);margin:0;">Analyzed (' + completed.length + ')</h3>' +
+          '<div style="flex:1;height:1px;background:rgba(16,185,129,0.2);"></div>' +
+        '</div>';
+        html += completed.map(function(a) { return renderAssessmentCard(a); }).join('');
+      }
+
+      container.innerHTML = html;
       
       // Render pagination
       renderPagination();
@@ -702,6 +719,19 @@
                 '</select>' +
               '</div>' +
             '</div>' +
+            '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">' +
+              '<div class="form-group">' +
+                '<label>Grade Level</label>' +
+                '<select id="editGrade" class="form-input">' +
+                  '<option value="">Select grade...</option>' +
+                  buildGradeOptions(assessment.grade_level) +
+                '</select>' +
+              '</div>' +
+              '<div class="form-group">' +
+                '<label>Date Administered</label>' +
+                '<input type="date" id="editDate" class="form-input" value="' + formatDateForInput(assessment.date_administered) + '">' +
+              '</div>' +
+            '</div>' +
             '<div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 16px; padding-top: 16px;">' +
               '<button class="btn btn-secondary" style="width: 100%;" onclick="openAssignPeriods(\'' + id + '\')">' +
                 '<span class="material-icons">schedule</span>' +
@@ -723,6 +753,28 @@
       document.getElementById('editName').focus();
     }
 
+    function buildGradeOptions(selected) {
+      var grades = [
+        {v: 'K', l: 'Kindergarten'}, {v: '1', l: '1st Grade'}, {v: '2', l: '2nd Grade'},
+        {v: '3', l: '3rd Grade'}, {v: '4', l: '4th Grade'}, {v: '5', l: '5th Grade'},
+        {v: '6', l: '6th Grade'}, {v: '7', l: '7th Grade'}, {v: '8', l: '8th Grade'},
+        {v: '9', l: '9th Grade'}, {v: '10', l: '10th Grade'}, {v: '11', l: '11th Grade'},
+        {v: '12', l: '12th Grade'}
+      ];
+      return grades.map(function(g) {
+        return '<option value="' + g.v + '"' + (String(selected) === g.v ? ' selected' : '') + '>' + g.l + '</option>';
+      }).join('');
+    }
+
+    function formatDateForInput(dateStr) {
+      if (!dateStr) return '';
+      try {
+        var d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '';
+        return d.toISOString().split('T')[0];
+      } catch (e) { return ''; }
+    }
+
     function saveAssessmentEdit(id) {
       var newName = document.getElementById('editName').value.trim();
       if (!newName) {
@@ -733,7 +785,9 @@
       var metadata = {
         name: newName,
         subject: document.getElementById('editSubject').value,
-        assessmentType: document.getElementById('editType').value
+        assessmentType: document.getElementById('editType').value,
+        gradeLevel: document.getElementById('editGrade').value,
+        dateAdministered: document.getElementById('editDate').value
       };
 
       var btn = document.getElementById('editSaveBtn');

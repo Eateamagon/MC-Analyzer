@@ -79,7 +79,19 @@
         <h1>Dashboard</h1>
         <span class="header-subtitle">Welcome back, <?= user.name || user.email.split('@')[0] ?></span>
       </div>
-      <div class="header-right">
+      <div class="header-right" style="display:flex;align-items:center;gap:16px;">
+        <div class="theme-toggles">
+          <div class="toggle-group">
+            <span class="material-icons toggle-icon">light_mode</span>
+            <label class="toggle-switch"><input type="checkbox" id="themeToggle" onchange="toggleTheme()"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Light</span>
+          </div>
+          <div class="toggle-group">
+            <span class="material-icons toggle-icon">visibility</span>
+            <label class="toggle-switch"><input type="checkbox" id="colorblindToggle" onchange="toggleColorblind()"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Colorblind</span>
+          </div>
+        </div>
         <button class="btn btn-primary" onclick="navigateTo('upload', event)">
           <span class="material-icons">add</span>
           New Analysis

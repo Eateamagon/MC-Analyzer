@@ -350,6 +350,81 @@ function navigateWithLoading(url, message, clickedEl) {
   window.location.href = url;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEME MANAGEMENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Initialize theme from localStorage and set up toggles.
+ * Runs immediately on include so there is no flash of wrong theme.
+ */
+(function initTheme() {
+  // Apply saved theme immediately (before DOM ready) to avoid flash
+  var savedTheme = null;
+  var savedColorblind = null;
+  try {
+    savedTheme = localStorage.getItem('kcms-theme');
+    savedColorblind = localStorage.getItem('kcms-colorblind');
+  } catch (e) { /* localStorage blocked */ }
+
+  if (savedTheme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+  if (savedColorblind === 'true') {
+    document.documentElement.setAttribute('data-colorblind', 'true');
+  }
+})();
+
+/**
+ * Toggle between dark and light theme
+ */
+function toggleTheme() {
+  var html = document.documentElement;
+  var isLight = html.getAttribute('data-theme') === 'light';
+  if (isLight) {
+    html.removeAttribute('data-theme');
+    try { localStorage.setItem('kcms-theme', 'dark'); } catch (e) {}
+  } else {
+    html.setAttribute('data-theme', 'light');
+    try { localStorage.setItem('kcms-theme', 'light'); } catch (e) {}
+  }
+  // Sync toggle checkbox if present
+  var toggle = document.getElementById('themeToggle');
+  if (toggle) toggle.checked = !isLight;
+}
+
+/**
+ * Toggle colorblind mode
+ */
+function toggleColorblind() {
+  var html = document.documentElement;
+  var isOn = html.getAttribute('data-colorblind') === 'true';
+  if (isOn) {
+    html.removeAttribute('data-colorblind');
+    try { localStorage.setItem('kcms-colorblind', 'false'); } catch (e) {}
+  } else {
+    html.setAttribute('data-colorblind', 'true');
+    try { localStorage.setItem('kcms-colorblind', 'true'); } catch (e) {}
+  }
+  // Sync toggle checkbox if present
+  var toggle = document.getElementById('colorblindToggle');
+  if (toggle) toggle.checked = !isOn;
+}
+
+/**
+ * Sync toggle checkboxes with current state after DOM is ready.
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  var themeToggle = document.getElementById('themeToggle');
+  var cbToggle = document.getElementById('colorblindToggle');
+  if (themeToggle) {
+    themeToggle.checked = document.documentElement.getAttribute('data-theme') === 'light';
+  }
+  if (cbToggle) {
+    cbToggle.checked = document.documentElement.getAttribute('data-colorblind') === 'true';
+  }
+});
+
 /**
  * Add slide out animation
  */

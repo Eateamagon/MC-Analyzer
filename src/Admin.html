@@ -297,8 +297,20 @@
         <span class="material-icons">admin_panel_settings</span>
         <span>Admin Panel</span>
       </a>
+      <a href="#" class="nav-item" onclick="showDistrictSummary()">
+        <span class="material-icons">assessment</span>
+        <span>District Summary</span>
+      </a>
     </div>
-    
+
+    <div class="nav-section">
+      <div class="nav-label">SETTINGS</div>
+      <a href="#" class="nav-item" onclick="openSettings()">
+        <span class="material-icons">tune</span>
+        <span>Preferences</span>
+      </a>
+    </div>
+
     <div class="sidebar-footer">
       <div class="user-info">
         <div class="user-avatar"><?= user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase() ?></div>
@@ -316,6 +328,20 @@
       <div class="header-left">
         <h1>Admin Panel</h1>
         <span class="header-subtitle">Manage users, settings, and view division-wide data</span>
+      </div>
+      <div class="header-right" style="display:flex;align-items:center;gap:16px;">
+        <div class="theme-toggles">
+          <div class="toggle-group">
+            <span class="material-icons toggle-icon">light_mode</span>
+            <label class="toggle-switch"><input type="checkbox" id="themeToggle" onchange="toggleTheme()"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Light</span>
+          </div>
+          <div class="toggle-group">
+            <span class="material-icons toggle-icon">visibility</span>
+            <label class="toggle-switch"><input type="checkbox" id="colorblindToggle" onchange="toggleColorblind()"><span class="toggle-slider"></span></label>
+            <span class="toggle-label">Colorblind</span>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -608,8 +634,54 @@
     </div>
   </main>
 
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="modal-close" onclick="closeSettings()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Analysis Thresholds</h3>
+          <div class="form-group">
+            <label>Growth Threshold (%)</label>
+            <input type="number" id="settingGrowth" class="form-input" min="0" max="100" value="50">
+            <span class="form-hint">Scores below this are marked as "Needs Growth"</span>
+          </div>
+          <div class="form-group">
+            <label>Strength Threshold (%)</label>
+            <input type="number" id="settingStrength" class="form-input" min="0" max="100" value="75">
+            <span class="form-hint">Scores at or above this are marked as "Strength"</span>
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>Small Group Settings</h3>
+          <div class="form-group">
+            <label>Weakness Threshold (%)</label>
+            <input type="number" id="settingSgThreshold" class="form-input" min="0" max="100" value="70">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Min Group Size</label>
+              <input type="number" id="settingSgMin" class="form-input" min="1" max="10" value="2">
+            </div>
+            <div class="form-group">
+              <label>Max Group Size</label>
+              <input type="number" id="settingSgMax" class="form-input" min="1" max="20" value="5">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
   <?!= include('Scripts'); ?>
-  
+
   <script>
     // Base URL for navigation
     const SCRIPT_URL = '<?= scriptUrl ?>';
@@ -1103,6 +1175,46 @@
           })
           .renameTeacher(assessmentId, oldName, newName);
       });
+    }
+
+    // ── Settings & District Summary ──────────────────────────────────
+    function openSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+      var user = <?= JSON.stringify(user) ?>;
+      if (user.settings) {
+        document.getElementById('settingGrowth').value = user.settings.growth || 50;
+        document.getElementById('settingStrength').value = user.settings.strength || 75;
+        document.getElementById('settingSgThreshold').value = user.settings.sgThreshold || 70;
+        document.getElementById('settingSgMin').value = user.settings.sgMin || 2;
+        document.getElementById('settingSgMax').value = user.settings.sgMax || 5;
+      }
+    }
+    function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+    function saveSettings() {
+      var settings = {
+        growth: parseInt(document.getElementById('settingGrowth').value),
+        strength: parseInt(document.getElementById('settingStrength').value),
+        sgThreshold: parseInt(document.getElementById('settingSgThreshold').value),
+        sgMin: parseInt(document.getElementById('settingSgMin').value),
+        sgMax: parseInt(document.getElementById('settingSgMax').value)
+      };
+      google.script.run
+        .withSuccessHandler(function() { showToast('Settings saved!', 'success'); closeSettings(); })
+        .withFailureHandler(function(err) { showToast('Error: ' + err.message, 'error'); })
+        .updateUserSettings(settings);
+    }
+    function showDistrictSummary() {
+      google.script.run
+        .withSuccessHandler(function(assessments) {
+          if (assessments && assessments.length > 0) {
+            var target = assessments.find(function(a) { return a.status === 'ready'; }) || assessments[0];
+            window.location.href = SCRIPT_URL + '?page=analysis&id=' + target.id + '&tab=district';
+          } else {
+            showToast('No assessments available. Upload data first.', 'info');
+          }
+        })
+        .withFailureHandler(function() { showToast('Error loading assessments', 'error'); })
+        .getAssessmentList();
     }
 
     function saveDefaultSettings() {

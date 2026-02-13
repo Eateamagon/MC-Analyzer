@@ -37,8 +37,9 @@ function runAnalysis(assessmentId, options) {
 
   // Get assessment data
   const assessmentData = getAssessmentData(assessmentId);
-  const { assessment, solRow, header, periodMap } = assessmentData;
+  const { assessment, solRow, header, periodMap, solMetadata } = assessmentData;
   var students = assessmentData.students;
+  const dataFormat = (assessment && assessment.data_format) || 'mastery_connect';
 
   // Get user settings
   const settings = user.settings || CONFIG.defaults;
@@ -124,7 +125,40 @@ function runAnalysis(assessmentId, options) {
   if (user.role !== CONFIG.roles.TEACHER) {
     results.districtSummary = generateDistrictSummary(results.teacherSummaries);
   }
-  
+
+  // SOL format-specific analysis
+  results.dataFormat = dataFormat;
+  if (dataFormat === 'sol_with_sol' && solMetadata) {
+    // SOL With SOL: SOL Analysis, Item Analysis by description, Reporting Categories, Remediation
+    if (options.solAnalysis !== false) {
+      results.solAnalysis = generateSOLAnalysis(students, questions, solMetadata, teacherCol);
+    }
+    if (options.solItemAnalysis !== false) {
+      results.solItemAnalysis = generateSOLItemAnalysis(students, questions, solMetadata);
+    }
+    if (options.reportingCategories !== false) {
+      results.reportingCategories = generateReportingCategoryAnalysis(students, questions, solMetadata);
+    }
+    if (options.remediationGroups !== false) {
+      results.remediationGroups = generateSmallGroups(
+        students, questions, teacherCol, firstNameCol, lastNameCol,
+        studentIdCol, settings, periodMap
+      );
+    }
+  } else if (dataFormat === 'sol_without_sol' && solMetadata) {
+    // SOL Without SOL: Scaled Scores, Item Difficulty Analysis
+    if (options.scaledScores !== false) {
+      results.scaledScores = generateScaledScoreAnalysis(
+        students, questions, solMetadata, teacherCol, firstNameCol, lastNameCol, studentIdCol
+      );
+    }
+    if (options.itemDifficulty !== false) {
+      results.itemDifficulty = generateItemDifficultyAnalysis(
+        students, questions, solMetadata, teacherCol, firstNameCol, lastNameCol
+      );
+    }
+  }
+
   // Store results
   storeAnalysisResults(assessmentId, results);
 
@@ -226,17 +260,29 @@ function generateItemAnalysis(students, questions, pctCol) {
       topCount = sortedWrong[0][1];
     }
     
-    // All distractors
-    const allDistractors = sortedWrong.map(([ans, count]) => ({ answer: ans, count: count }));
-    
+    // All distractors - filter out placeholder dashes (SOL format has no answer choices)
+    const allDistractors = sortedWrong
+      .map(([ans, count]) => ({ answer: ans, count: count }))
+      .filter(d => d.answer !== '-' && d.answer !== '');
+
+    // Update top wrong from filtered distractors
+    if (allDistractors.length > 0) {
+      topWrong = allDistractors[0].answer;
+      topCount = allDistractors[0].count;
+    } else if (sortedWrong.length > 0 && sortedWrong[0][0] === '-') {
+      // SOL format: no meaningful distractor data
+      topWrong = '-';
+      topCount = 0;
+    }
+
     // Check if high performers struggled
     let hpWrong = 0;
     highPerformers.forEach(hp => {
       if (hp[q.scoreColIndex] != 1) hpWrong++;
     });
-    
+
     const reviewFlag = highPerformers.length > 0 && (hpWrong / highPerformers.length) > 0.5;
-    
+
     analysis.push({
       question: `Q${q.number}`,
       sol: q.sol,
@@ -555,6 +601,259 @@ function generateDistrictSummary(teacherSummaries) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//                   SOL FORMAT-SPECIFIC ANALYSIS FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * SOL Analysis: correct/incorrect breakdown per SOL code.
+ * Used for "SOL With SOL" format.
+ */
+function generateSOLAnalysis(students, questions, solMetadata, teacherCol) {
+  var sols = {};
+  // Group questions by SOL code
+  questions.forEach(function(q) {
+    if (!sols[q.sol]) {
+      sols[q.sol] = { sol: q.sol, questions: [], correct: 0, incorrect: 0, total: 0 };
+    }
+    sols[q.sol].questions.push(q);
+  });
+
+  // Tally correct/incorrect for each SOL across all students
+  students.forEach(function(student) {
+    Object.keys(sols).forEach(function(sol) {
+      sols[sol].questions.forEach(function(q) {
+        var sc = student[q.scoreColIndex];
+        if (sc == 1 || sc === '1') { sols[sol].correct++; sols[sol].total++; }
+        else if (sc == 0 || sc === '0') { sols[sol].incorrect++; sols[sol].total++; }
+      });
+    });
+  });
+
+  // Build result array sorted by SOL
+  var result = Object.keys(sols).sort().map(function(sol) {
+    var s = sols[sol];
+    return {
+      sol: sol,
+      correct: s.correct,
+      incorrect: s.incorrect,
+      total: s.total,
+      pctCorrect: s.total > 0 ? Math.round((s.correct / s.total) * 100) : 0,
+      questionCount: s.questions.length
+    };
+  });
+
+  return result;
+}
+
+/**
+ * SOL Item Analysis: per-item breakdown using Item Description.
+ * Used for "SOL With SOL" format.
+ */
+function generateSOLItemAnalysis(students, questions, solMetadata) {
+  var descriptions = solMetadata.itemDescriptions || [];
+  var difficulties = solMetadata.itemDifficulties || [];
+
+  var items = questions.map(function(q, idx) {
+    var correct = 0;
+    var incorrect = 0;
+    students.forEach(function(student) {
+      var sc = student[q.scoreColIndex];
+      if (sc == 1 || sc === '1') correct++;
+      else if (sc == 0 || sc === '0') incorrect++;
+    });
+    var total = correct + incorrect;
+    return {
+      question: 'Q' + q.number,
+      sol: q.sol,
+      description: descriptions[idx] || '',
+      difficulty: difficulties[idx] || '',
+      correct: correct,
+      incorrect: incorrect,
+      total: total,
+      pctCorrect: total > 0 ? Math.round((correct / total) * 100) : 0
+    };
+  });
+
+  return items;
+}
+
+/**
+ * Reporting Category Analysis: correct/incorrect/grand total per category.
+ * Used for "SOL With SOL" format.
+ */
+function generateReportingCategoryAnalysis(students, questions, solMetadata) {
+  var categories = {};
+  var reportingCats = solMetadata.reportingCategories || [];
+
+  // Group questions by reporting category
+  questions.forEach(function(q, idx) {
+    var cat = reportingCats[idx] || 'Unknown';
+    if (!categories[cat]) {
+      categories[cat] = { category: cat, questions: [], correct: 0, incorrect: 0, total: 0 };
+    }
+    categories[cat].questions.push(q);
+  });
+
+  // Tally correct/incorrect
+  students.forEach(function(student) {
+    Object.keys(categories).forEach(function(cat) {
+      categories[cat].questions.forEach(function(q) {
+        var sc = student[q.scoreColIndex];
+        if (sc == 1 || sc === '1') { categories[cat].correct++; categories[cat].total++; }
+        else if (sc == 0 || sc === '0') { categories[cat].incorrect++; categories[cat].total++; }
+      });
+    });
+  });
+
+  var result = Object.keys(categories).sort().map(function(cat) {
+    var c = categories[cat];
+    return {
+      category: c.category,
+      correct: c.correct,
+      incorrect: c.incorrect,
+      total: c.total,
+      pctCorrect: c.total > 0 ? Math.round((c.correct / c.total) * 100) : 0,
+      questionCount: c.questions.length
+    };
+  });
+
+  // Add grand total row
+  var grandCorrect = result.reduce(function(s, r) { return s + r.correct; }, 0);
+  var grandIncorrect = result.reduce(function(s, r) { return s + r.incorrect; }, 0);
+  var grandTotal = grandCorrect + grandIncorrect;
+
+  return {
+    categories: result,
+    grandTotal: {
+      correct: grandCorrect,
+      incorrect: grandIncorrect,
+      total: grandTotal,
+      pctCorrect: grandTotal > 0 ? Math.round((grandCorrect / grandTotal) * 100) : 0
+    }
+  };
+}
+
+/**
+ * Scaled Score per Student table.
+ * Used for "SOL Without SOL" format.
+ */
+function generateScaledScoreAnalysis(students, questions, solMetadata, teacherCol, firstNameCol, lastNameCol, studentIdCol) {
+  var scaledScores = solMetadata.scaledScores || {};
+
+  var result = students.map(function(student) {
+    var name = ((student[firstNameCol] || '') + ' ' + (student[lastNameCol] || '')).trim();
+    var teacher = student[teacherCol] || '';
+    var sid = student[studentIdCol] || '';
+
+    // Calculate correct/total from the MC data
+    var correct = 0;
+    var total = 0;
+    questions.forEach(function(q) {
+      var sc = student[q.scoreColIndex];
+      if (sc == 1 || sc === '1') { correct++; total++; }
+      else if (sc == 0 || sc === '0') { total++; }
+    });
+
+    return {
+      student: name,
+      teacher: teacher,
+      studentId: sid,
+      scaledScore: scaledScores[sid] || '',
+      correct: correct,
+      total: total,
+      pctCorrect: total > 0 ? Math.round((correct / total) * 100) : 0
+    };
+  });
+
+  // Sort by teacher, then by name
+  result.sort(function(a, b) {
+    if (a.teacher !== b.teacher) return a.teacher.localeCompare(b.teacher);
+    return a.student.localeCompare(b.student);
+  });
+
+  return result;
+}
+
+/**
+ * Item Difficulty Analysis: per-student and total performance by difficulty (H/M/L).
+ * Used for "SOL Without SOL" format.
+ */
+function generateItemDifficultyAnalysis(students, questions, solMetadata, teacherCol, firstNameCol, lastNameCol) {
+  var difficulties = solMetadata.itemDifficulties || [];
+
+  // Group questions by difficulty level
+  var diffGroups = {};
+  questions.forEach(function(q, idx) {
+    var diff = (difficulties[idx] || 'Unknown').toUpperCase();
+    if (!diffGroups[diff]) diffGroups[diff] = [];
+    diffGroups[diff].push(q);
+  });
+
+  var diffLevels = Object.keys(diffGroups).sort();
+
+  // Per-student breakdown
+  var perStudent = students.map(function(student) {
+    var name = ((student[firstNameCol] || '') + ' ' + (student[lastNameCol] || '')).trim();
+    var teacher = student[teacherCol] || '';
+
+    var byDiff = {};
+    diffLevels.forEach(function(diff) {
+      var correct = 0;
+      var total = 0;
+      diffGroups[diff].forEach(function(q) {
+        var sc = student[q.scoreColIndex];
+        if (sc == 1 || sc === '1') { correct++; total++; }
+        else if (sc == 0 || sc === '0') { total++; }
+      });
+      byDiff[diff] = {
+        correct: correct,
+        total: total,
+        pctCorrect: total > 0 ? Math.round((correct / total) * 100) : 0
+      };
+    });
+
+    return {
+      student: name,
+      teacher: teacher,
+      byDifficulty: byDiff
+    };
+  });
+
+  // Sort by teacher then name
+  perStudent.sort(function(a, b) {
+    if (a.teacher !== b.teacher) return a.teacher.localeCompare(b.teacher);
+    return a.student.localeCompare(b.student);
+  });
+
+  // Total breakdown by difficulty
+  var totals = {};
+  diffLevels.forEach(function(diff) {
+    var correct = 0;
+    var total = 0;
+    students.forEach(function(student) {
+      diffGroups[diff].forEach(function(q) {
+        var sc = student[q.scoreColIndex];
+        if (sc == 1 || sc === '1') { correct++; total++; }
+        else if (sc == 0 || sc === '0') { total++; }
+      });
+    });
+    totals[diff] = {
+      correct: correct,
+      total: total,
+      pctCorrect: total > 0 ? Math.round((correct / total) * 100) : 0,
+      questionCount: diffGroups[diff].length
+    };
+  });
+
+  return {
+    difficultyLevels: diffLevels,
+    perStudent: perStudent,
+    totals: totals,
+    questionCountByDifficulty: diffLevels.map(function(d) { return { difficulty: d, count: diffGroups[d].length }; })
+  };
+}
+
 /**
  * Stores analysis results in the database
  */
@@ -569,7 +868,15 @@ function storeAnalysisResults(assessmentId, results) {
     smallGroups: results.smallGroups || null,
     heatmaps: results.heatmaps || null,
     districtSummary: results.districtSummary || null,
-    teacherSummaries: results.teacherSummaries || []
+    teacherSummaries: results.teacherSummaries || [],
+    // SOL format-specific results
+    dataFormat: results.dataFormat || null,
+    solAnalysis: results.solAnalysis || null,
+    solItemAnalysis: results.solItemAnalysis || null,
+    reportingCategories: results.reportingCategories || null,
+    remediationGroups: results.remediationGroups || null,
+    scaledScores: results.scaledScores || null,
+    itemDifficulty: results.itemDifficulty || null
   };
 
   // Single row write instead of 5 separate appendRow calls
@@ -611,6 +918,14 @@ function getAnalysisResults(assessmentId) {
             if (allData.heatmaps) results.heatmaps = allData.heatmaps;
             if (allData.districtSummary) results.districtSummary = allData.districtSummary;
             if (allData.teacherSummaries) results.teacherSummaries = allData.teacherSummaries;
+            // SOL format-specific results
+            if (allData.dataFormat) results.dataFormat = allData.dataFormat;
+            if (allData.solAnalysis) results.solAnalysis = allData.solAnalysis;
+            if (allData.solItemAnalysis) results.solItemAnalysis = allData.solItemAnalysis;
+            if (allData.reportingCategories) results.reportingCategories = allData.reportingCategories;
+            if (allData.remediationGroups) results.remediationGroups = allData.remediationGroups;
+            if (allData.scaledScores) results.scaledScores = allData.scaledScores;
+            if (allData.itemDifficulty) results.itemDifficulty = allData.itemDifficulty;
           } else {
             // Legacy format: one row per analysis type
             results[type] = JSON.parse(data[i][5] || '{}');

@@ -644,10 +644,10 @@ function initializeDatabase(ss) {
   
   // Assessments sheet
   sheet = ss.insertSheet(CONFIG.sheets.assessments);
-  sheet.getRange(1, 1, 1, 12).setValues([[
-    'id', 'name', 'school', 'teacher_email', 'subject', 'grade_level', 
-    'assessment_type', 'date_administered', 'date_uploaded', 'student_count', 
-    'question_count', 'status'
+  sheet.getRange(1, 1, 1, 13).setValues([[
+    'id', 'name', 'school', 'teacher_email', 'subject', 'grade_level',
+    'assessment_type', 'date_administered', 'date_uploaded', 'student_count',
+    'question_count', 'status', 'data_format'
   ]]);
   
   // Raw Data sheet
@@ -734,7 +734,7 @@ function getUserExistingAssessments() {
  * Checks for duplicate assessment before upload
  * Returns existing assessment if found, null otherwise
  */
-function checkForDuplicateAssessment(metadata, csvContent) {
+function checkForDuplicateAssessment(metadata, csvContent, dataFormat) {
   try {
     const user = getCurrentUser();
     if (!user) return null;
@@ -757,19 +757,22 @@ function checkForDuplicateAssessment(metadata, csvContent) {
     const studentCountCol = headers.indexOf('student_count');
     
     // Parse CSV to get student count for matching
-    const rows = Utilities.parseCsv(csvContent);
-    const uploadStudentCount = rows.length - 2;
-    
+    const rows = parseFlexibleDelimiter(csvContent);
+    // For SOL formats, row count doesn't map to student count (rows are per-item),
+    // so skip count matching and rely on name + teacher + date
+    const isSolFormat = dataFormat && dataFormat !== 'mastery_connect';
+    const uploadStudentCount = isSolFormat ? -1 : rows.length - 2;
+
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       if (!row[idCol]) continue;
-      
-      // Match criteria: same name + same teacher + same date + same student count
+
+      // Match criteria: same name + same teacher + same date (+ student count for MC format)
       const nameMatch = row[nameCol] === metadata.name;
       const teacherMatch = row[teacherCol] === user.email;
       const dateMatch = row[dateCol] === metadata.dateAdministered;
-      const countMatch = row[studentCountCol] === uploadStudentCount;
-      
+      const countMatch = !isSolFormat && row[studentCountCol] === uploadStudentCount;
+
       // If name, teacher, and either date or student count match, it's likely a duplicate
       if (nameMatch && teacherMatch && (dateMatch || countMatch)) {
         return {
@@ -790,6 +793,256 @@ function checkForDuplicateAssessment(metadata, csvContent) {
 }
 
 /**
+ * Auto-detects tab vs comma delimiter and parses CSV/TSV content into a 2D array.
+ */
+function parseFlexibleDelimiter(csvContent) {
+  var lines = csvContent.split('\n');
+  if (lines.length === 0) return [];
+
+  var firstLine = lines[0];
+  var tabCount = (firstLine.match(/\t/g) || []).length;
+  var commaCount = (firstLine.match(/,/g) || []).length;
+
+  if (tabCount > commaCount) {
+    // Tab-separated
+    return lines
+      .filter(function(line) { return line.trim().length > 0; })
+      .map(function(line) { return line.split('\t').map(function(cell) { return cell.trim(); }); });
+  } else {
+    return Utilities.parseCsv(csvContent);
+  }
+}
+
+/**
+ * Transforms SOL format data (row-per-item) into MC-compatible format (row-per-student).
+ * @param {Array[]} rows - Parsed 2D array from parseFlexibleDelimiter
+ * @param {string} format - 'sol_with_sol' or 'sol_without_sol'
+ * @returns {Array[]} MC-compatible 2D array: [solRow, headerRow, ...studentRows]
+ */
+function transformSOLToMCFormat(rows, format) {
+  if (rows.length < 2) {
+    throw new Error('SOL data must have at least a header row and one data row');
+  }
+
+  // Parse header (row 0)
+  var header = rows[0];
+  var colMap = {};
+  for (var i = 0; i < header.length; i++) {
+    colMap[header[i].toString().toLowerCase().trim()] = i;
+  }
+
+  // Required columns for both formats
+  var requiredCols = ['student name', 'grade', 'delivery group', 'subject',
+    'test scaled score', 'reporting category', 'item description',
+    'item difficulty', 'correct/incorrect'];
+  var missingCols = requiredCols.filter(function(c) { return colMap[c] === undefined; });
+  if (missingCols.length > 0) {
+    throw new Error('Missing required SOL columns: ' + missingCols.join(', '));
+  }
+
+  // Additional columns for sol_with_sol
+  if (format === 'sol_with_sol') {
+    if (colMap['sol'] === undefined) {
+      throw new Error('Missing required column "SOL" for SOL With SOL format');
+    }
+    if (colMap['performance level'] === undefined) {
+      throw new Error('Missing required column "Performance Level" for SOL With SOL format');
+    }
+  }
+
+  var nameIdx = colMap['student name'];
+  var gradeIdx = colMap['grade'];
+  var groupIdx = colMap['delivery group'];
+  var subjectIdx = colMap['subject'];
+  var scoreIdx = colMap['test scaled score'];
+  var catIdx = colMap['reporting category'];
+  var descIdx = colMap['item description'];
+  var diffIdx = colMap['item difficulty'];
+  var correctIdx = colMap['correct/incorrect'];
+  var solIdx = format === 'sol_with_sol' ? colMap['sol'] : -1;
+
+  // Build unique question list (ordered by first appearance) and student map
+  var questionOrder = [];
+  var questionSet = {};
+  var studentMap = {};
+
+  for (var r = 1; r < rows.length; r++) {
+    var row = rows[r];
+    if (!row || row.length < header.length) continue;
+
+    var studentName = (row[nameIdx] || '').toString().trim();
+    var deliveryGroup = (row[groupIdx] || '').toString().trim();
+    var itemDesc = (row[descIdx] || '').toString().trim();
+    var isCorrect = (row[correctIdx] || '').toString().trim().toUpperCase();
+
+    if (!studentName || !itemDesc) continue;
+
+    // Track unique questions by Item Description
+    if (!questionSet[itemDesc]) {
+      var solLabel = '';
+      if (format === 'sol_with_sol' && solIdx !== -1) {
+        solLabel = (row[solIdx] || '').toString().trim();
+      } else {
+        solLabel = (row[catIdx] || '').toString().trim();
+      }
+      questionSet[itemDesc] = {
+        index: questionOrder.length,
+        sol: solLabel,
+        difficulty: (row[diffIdx] || '').toString().trim(),
+        description: itemDesc
+      };
+      questionOrder.push(itemDesc);
+    }
+
+    // Track student data
+    var studentKey = studentName + '||' + deliveryGroup;
+    if (!studentMap[studentKey]) {
+      studentMap[studentKey] = {
+        name: studentName,
+        grade: (row[gradeIdx] || '').toString().trim(),
+        deliveryGroup: deliveryGroup,
+        subject: (row[subjectIdx] || '').toString().trim(),
+        scaledScore: (row[scoreIdx] || '').toString().trim(),
+        answers: {}
+      };
+    }
+    studentMap[studentKey].answers[itemDesc] = (isCorrect === 'CORRECT') ? 1 : 0;
+  }
+
+  var totalQuestions = questionOrder.length;
+  if (totalQuestions === 0) {
+    throw new Error('No valid question data found in SOL file');
+  }
+
+  // Build MC-compatible SOL row
+  // Format: ["", "", "", "", "", sol1, "", sol2, "", ...]
+  var solRow = ['', '', '', '', ''];
+  for (var q = 0; q < totalQuestions; q++) {
+    var qDesc = questionOrder[q];
+    solRow.push(questionSet[qDesc].sol);
+    solRow.push('');
+  }
+
+  // Build MC-compatible header row
+  var headerRow = ['teacher', 'first_name', 'last_name', 'student_id', 'percentage'];
+  for (var q = 0; q < totalQuestions; q++) {
+    headerRow.push('Q' + (q + 1));
+    headerRow.push('Q' + (q + 1) + '_score');
+  }
+
+  // Build student rows
+  var studentRows = [];
+  var studentIdx = 0;
+  var studentKeys = Object.keys(studentMap);
+  for (var s = 0; s < studentKeys.length; s++) {
+    var key = studentKeys[s];
+    var student = studentMap[key];
+    studentIdx++;
+
+    // Split student name: handle "LAST, FIRST" or "FIRST LAST" formats
+    var firstName = '';
+    var lastName = '';
+    if (student.name.indexOf(',') !== -1) {
+      var parts = student.name.split(',');
+      lastName = parts[0].trim();
+      firstName = parts.slice(1).join(',').trim();
+    } else {
+      var nameParts = student.name.split(/\s+/);
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+
+    // Calculate percentage from correct/total
+    var correctCount = 0;
+    var answeredCount = 0;
+    for (var q = 0; q < totalQuestions; q++) {
+      var qDesc = questionOrder[q];
+      if (student.answers[qDesc] !== undefined) {
+        answeredCount++;
+        if (student.answers[qDesc] === 1) correctCount++;
+      }
+    }
+    var percentage = answeredCount > 0 ? Math.round((correctCount / totalQuestions) * 1000) / 10 : 0;
+
+    var studentRow = [
+      student.deliveryGroup,
+      firstName,
+      lastName,
+      'SOL_' + studentIdx,
+      percentage
+    ];
+
+    for (var q = 0; q < totalQuestions; q++) {
+      var qDesc = questionOrder[q];
+      var ans = student.answers[qDesc];
+      if (ans !== undefined) {
+        studentRow.push('-');
+        studentRow.push(ans);
+      } else {
+        studentRow.push('');
+        studentRow.push('');
+      }
+    }
+
+    studentRows.push(studentRow);
+  }
+
+  if (studentRows.length === 0) {
+    throw new Error('No valid student data found in SOL file');
+  }
+
+  var mcRows = [solRow, headerRow];
+  for (var i = 0; i < studentRows.length; i++) {
+    mcRows.push(studentRows[i]);
+  }
+
+  // Build SOL-specific metadata for format-specific analysis
+  var itemDescriptions = [];
+  var reportingCategories = [];
+  var itemDifficulties = [];
+  for (var q = 0; q < totalQuestions; q++) {
+    var qDesc = questionOrder[q];
+    var qInfo = questionSet[qDesc];
+    itemDescriptions.push(qDesc);
+    itemDifficulties.push(qInfo.difficulty);
+    // For sol_with_sol, reporting category is separate from SOL code
+    // We need to re-extract it from the original data
+    reportingCategories.push('');
+  }
+
+  // Re-scan original data to fill reporting categories for each question
+  var catByDesc = {};
+  for (var r = 1; r < rows.length; r++) {
+    var row = rows[r];
+    if (!row || row.length < header.length) continue;
+    var desc = (row[descIdx] || '').toString().trim();
+    if (desc && !catByDesc[desc]) {
+      catByDesc[desc] = (row[catIdx] || '').toString().trim();
+    }
+  }
+  for (var q = 0; q < totalQuestions; q++) {
+    reportingCategories[q] = catByDesc[questionOrder[q]] || '';
+  }
+
+  // Build scaled scores map (student key -> scaled score)
+  var scaledScores = {};
+  for (var s = 0; s < studentKeys.length; s++) {
+    var key = studentKeys[s];
+    scaledScores['SOL_' + (s + 1)] = studentMap[key].scaledScore;
+  }
+
+  var solMetadata = {
+    format: format,
+    itemDescriptions: itemDescriptions,
+    reportingCategories: reportingCategories,
+    itemDifficulties: itemDifficulties,
+    scaledScores: scaledScores
+  };
+
+  return { rows: mcRows, solMetadata: solMetadata };
+}
+
+/**
  * Processes uploaded CSV data
  */
 function processCSVUpload(uploadData) {
@@ -800,9 +1053,10 @@ function processCSVUpload(uploadData) {
   
   const csvContent = uploadData.csvContent;
   const metadata = uploadData.metadata;
-  
+  const dataFormat = metadata.dataFormat || 'mastery_connect';
+
   // Check for duplicate first
-  const duplicate = checkForDuplicateAssessment(metadata, csvContent);
+  const duplicate = checkForDuplicateAssessment(metadata, csvContent, dataFormat);
   if (duplicate) {
     return {
       success: false,
@@ -812,15 +1066,24 @@ function processCSVUpload(uploadData) {
       message: duplicate.message
     };
   }
-  
-  // Parse CSV
-  const rows = Utilities.parseCsv(csvContent);
-  
-  if (rows.length < 3) {
-    throw new Error('CSV must have at least 3 rows (SOL row, header row, and data rows)');
+
+  // Parse CSV - branch based on format
+  let rows;
+  if (dataFormat === 'mastery_connect') {
+    rows = Utilities.parseCsv(csvContent);
+
+    if (rows.length < 3) {
+      throw new Error('CSV must have at least 3 rows (SOL row, header row, and data rows)');
+    }
+  } else {
+    // SOL format: parse with flexible delimiter, then transform to MC format
+    const solRows = parseFlexibleDelimiter(csvContent);
+    const transformed = transformSOLToMCFormat(solRows, dataFormat);
+    rows = transformed.rows;
+    var solMetadata = transformed.solMetadata;
   }
-  
-  // Validate required columns
+
+  // Validate required columns (header is always row[1] after transformation)
   const header = rows[1];
   const requiredCols = ['teacher', 'first_name', 'last_name', 'percentage', 'student_id'];
   const missingCols = requiredCols.filter(col => {
@@ -898,7 +1161,8 @@ function processCSVUpload(uploadData) {
     new Date().toISOString(),
     studentCount,
     questionCount,
-    'pending_periods'
+    'pending_periods',
+    dataFormat
   ]);
   
   // Store raw data - sol row, header row, and student rows chunked to fit cell limits
@@ -932,6 +1196,11 @@ function processCSVUpload(uploadData) {
 
   if (chunk.length > 0) {
     rawRows.push([assessmentId, rowIdx++, 'students', JSON.stringify(chunk)]);
+  }
+
+  // Store SOL-specific metadata if present
+  if (typeof solMetadata !== 'undefined' && solMetadata) {
+    rawRows.push([assessmentId, rowIdx++, 'sol_metadata', JSON.stringify(solMetadata)]);
   }
 
   // Single batch write instead of N appendRow calls
@@ -1127,6 +1396,7 @@ function getAssessmentData(assessmentId) {
     let solRow = [];
     let header = [];
     let students = [];
+    let solMetadata = null;
 
     for (let i = 1; i < rawData.length; i++) {
       if (rawData[i][0] != null && String(rawData[i][0]).trim() === normalId) {
@@ -1136,8 +1406,9 @@ function getAssessmentData(assessmentId) {
 
           if (rowType === 'sol') solRow = data;
           else if (rowType === 'header') header = data;
-          else if (rowType === 'students') students = students.concat(data); // Chunked or single array of students
-          else if (rowType === 'student') students.push(data); // Legacy format: one row per student
+          else if (rowType === 'students') students = students.concat(data);
+          else if (rowType === 'student') students.push(data);
+          else if (rowType === 'sol_metadata') solMetadata = data;
         } catch (parseError) {
           Logger.log('Error parsing row ' + i + ': ' + parseError.message);
         }
@@ -1163,7 +1434,8 @@ function getAssessmentData(assessmentId) {
       solRow: solRow,
       header: header,
       students: students,
-      periodMap: periodMap
+      periodMap: periodMap,
+      solMetadata: solMetadata
     };
   } catch (error) {
     Logger.log('getAssessmentData error: ' + error.message);

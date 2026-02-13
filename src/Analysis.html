@@ -8,6 +8,40 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <?!= include('Styles'); ?>
   <style>
+    /* Data table styles for SOL analysis */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .data-table th, .data-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));
+    }
+    .data-table th {
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      background: var(--bg-surface-light, rgba(255,255,255,0.03));
+      position: sticky;
+      top: 0;
+    }
+    .data-table tbody tr:hover {
+      background: var(--bg-surface-light, rgba(255,255,255,0.03));
+    }
+    .data-table .sol-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--primary);
+      margin: 2px 4px 2px 0;
+    }
+
     /* Analysis-specific styles */
     .analysis-tabs {
       display: flex;
@@ -565,7 +599,8 @@
 
     <!-- Analysis Options -->
     <div class="options-panel">
-      <div class="option-group">
+      <!-- MC Format Options (default) -->
+      <div class="option-group" id="mcOptionsGroup">
         <span class="option-label">Include:</span>
         <label class="checkbox-wrapper">
           <input type="checkbox" id="optItemAnalysis" checked>
@@ -578,6 +613,38 @@
         <label class="checkbox-wrapper">
           <input type="checkbox" id="optHeatmaps" checked>
           <span>Heatmaps</span>
+        </label>
+      </div>
+      <!-- SOL With SOL Options (hidden by default) -->
+      <div class="option-group" id="solWithOptionsGroup" style="display:none;">
+        <span class="option-label">Include:</span>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optSOLAnalysis" checked>
+          <span>SOL Analysis</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optSOLItemAnalysis" checked>
+          <span>Item Analysis</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optReportingCat" checked>
+          <span>Reporting Categories</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optRemediation" checked>
+          <span>Remediation Groups</span>
+        </label>
+      </div>
+      <!-- SOL Without SOL Options (hidden by default) -->
+      <div class="option-group" id="solWithoutOptionsGroup" style="display:none;">
+        <span class="option-label">Include:</span>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optScaledScores" checked>
+          <span>Scaled Scores</span>
+        </label>
+        <label class="checkbox-wrapper">
+          <input type="checkbox" id="optItemDifficulty" checked>
+          <span>Item Difficulty</span>
         </label>
       </div>
       <div class="option-group">
@@ -758,6 +825,123 @@
       </div>
     </div>
     <? } ?>
+
+    <!-- SOL With SOL Format Tabs -->
+    <div class="tab-content" id="solAnalysisTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">assignment</span>
+            SOL Analysis
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="solAnalysisContent">
+            <div class="empty-state">
+              <span class="material-icons">analytics</span>
+              <p>Run analysis to see SOL performance breakdown</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="solItemsTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">list_alt</span>
+            Item Analysis
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="solItemAnalysisContent">
+            <div class="empty-state">
+              <span class="material-icons">quiz</span>
+              <p>Run analysis to see item-level performance</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="reportingCatTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">category</span>
+            Reporting Categories
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="reportingCatContent">
+            <div class="empty-state">
+              <span class="material-icons">pie_chart</span>
+              <p>Run analysis to see reporting category breakdown</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="remediationTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">groups</span>
+            Remediation Groupings
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="remediationContent">
+            <div class="empty-state">
+              <span class="material-icons">groups</span>
+              <p>Run analysis to see remediation group recommendations</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOL Without SOL Format Tabs -->
+    <div class="tab-content" id="scaledScoresTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">score</span>
+            Scaled Scores
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="scaledScoresContent">
+            <div class="empty-state">
+              <span class="material-icons">leaderboard</span>
+              <p>Run analysis to see scaled scores per student</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="itemDifficultyTab" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <span class="material-icons">signal_cellular_alt</span>
+            Item Difficulty Analysis
+          </h2>
+        </div>
+        <div class="card-body">
+          <div id="itemDifficultyContent">
+            <div class="empty-state">
+              <span class="material-icons">assessment</span>
+              <p>Run analysis to see performance by item difficulty</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- Settings Modal -->
@@ -881,6 +1065,10 @@
             (data.assessment.question_count || 0) + ' questions \u2022 ' +
             formatDate(data.assessment.date_uploaded);
 
+          // Show format-specific options panel
+          var fmt = data.assessment.data_format || 'mastery_connect';
+          configureOptionsForFormat(fmt);
+
           // Check if there are existing results
           loadExistingResults();
         })
@@ -986,11 +1174,20 @@
       }
       showLoading('Running analysis...');
 
+      var optEl = function(id) { var el = document.getElementById(id); return el ? el.checked : true; };
       const options = {
-        itemAnalysis: document.getElementById('optItemAnalysis').checked,
-        smallGroups: document.getElementById('optSmallGroups').checked,
-        heatmaps: document.getElementById('optHeatmaps').checked,
-        sendEmail: document.getElementById('optSendEmail').checked
+        itemAnalysis: optEl('optItemAnalysis'),
+        smallGroups: optEl('optSmallGroups'),
+        heatmaps: optEl('optHeatmaps'),
+        sendEmail: optEl('optSendEmail'),
+        // SOL With SOL options
+        solAnalysis: optEl('optSOLAnalysis'),
+        solItemAnalysis: optEl('optSOLItemAnalysis'),
+        reportingCategories: optEl('optReportingCat'),
+        remediationGroups: optEl('optRemediation'),
+        // SOL Without SOL options
+        scaledScores: optEl('optScaledScores'),
+        itemDifficulty: optEl('optItemDifficulty')
       };
 
       if (overwrite) {
@@ -1032,18 +1229,33 @@
       // Hide the "Ready to Analyze" message
       document.getElementById('noResultsMessage').style.display = 'none';
 
+      var dataFormat = analysisResults.dataFormat || 'mastery_connect';
+
+      // Configure tabs based on data format
+      configureTabsForFormat(dataFormat);
+
       // Populate teacher filters
       populateTeacherFilters();
-      
+
       // Display teacher summaries
       displayTeacherSummaries();
-      
-      // Display small groups
-      displaySmallGroups();
 
-      // Display heatmaps if available
-      if (analysisResults.heatmaps) {
-        showHeatmap('student');
+      if (dataFormat === 'sol_with_sol') {
+        // SOL With SOL specific displays
+        if (analysisResults.solAnalysis) displaySOLAnalysis();
+        if (analysisResults.solItemAnalysis) displaySOLItemAnalysis();
+        if (analysisResults.reportingCategories) displayReportingCategories();
+        if (analysisResults.remediationGroups) displayRemediationGroups();
+      } else if (dataFormat === 'sol_without_sol') {
+        // SOL Without SOL specific displays
+        if (analysisResults.scaledScores) displayScaledScores();
+        if (analysisResults.itemDifficulty) displayItemDifficulty();
+      } else {
+        // Standard MC format
+        displaySmallGroups();
+        if (analysisResults.heatmaps) {
+          showHeatmap('student');
+        }
       }
 
       // Display district summary
@@ -1062,6 +1274,307 @@
           if (tabEl) tabEl.classList.add('active');
         }
       }
+    }
+
+    function configureOptionsForFormat(dataFormat) {
+      var mcOpts = document.getElementById('mcOptionsGroup');
+      var solWithOpts = document.getElementById('solWithOptionsGroup');
+      var solWithoutOpts = document.getElementById('solWithoutOptionsGroup');
+
+      if (dataFormat === 'sol_with_sol') {
+        if (mcOpts) mcOpts.style.display = 'none';
+        if (solWithOpts) solWithOpts.style.display = '';
+        if (solWithoutOpts) solWithoutOpts.style.display = 'none';
+      } else if (dataFormat === 'sol_without_sol') {
+        if (mcOpts) mcOpts.style.display = 'none';
+        if (solWithOpts) solWithOpts.style.display = 'none';
+        if (solWithoutOpts) solWithoutOpts.style.display = '';
+      } else {
+        if (mcOpts) mcOpts.style.display = '';
+        if (solWithOpts) solWithOpts.style.display = 'none';
+        if (solWithoutOpts) solWithoutOpts.style.display = 'none';
+      }
+    }
+
+    function configureTabsForFormat(dataFormat) {
+      var tabBar = document.querySelector('.analysis-tabs');
+      if (!tabBar) return;
+
+      // MC format tabs (always present in HTML)
+      var mcTabs = ['summary', 'items', 'groups', 'heatmap'];
+      // SOL With SOL tabs
+      var solWithTabs = ['solAnalysis', 'solItems', 'reportingCat', 'remediation'];
+      // SOL Without SOL tabs
+      var solWithoutTabs = ['scaledScores', 'itemDifficulty'];
+
+      if (dataFormat === 'sol_with_sol') {
+        // Hide MC-specific tabs (items, groups, heatmap), keep summary
+        ['items', 'groups', 'heatmap'].forEach(function(t) {
+          var btn = tabBar.querySelector('.tab-btn[onclick*="showTab(\'' + t + '\')"]');
+          if (btn) btn.style.display = 'none';
+        });
+
+        // Add SOL With SOL tab buttons
+        var solTabDefs = [
+          { id: 'solAnalysis', icon: 'assignment', label: 'SOL Analysis' },
+          { id: 'solItems', icon: 'list_alt', label: 'Item Analysis' },
+          { id: 'reportingCat', icon: 'category', label: 'Reporting Categories' },
+          { id: 'remediation', icon: 'groups', label: 'Remediation Groups' }
+        ];
+        solTabDefs.forEach(function(def) {
+          if (!tabBar.querySelector('.tab-btn[onclick*="' + def.id + '"]')) {
+            var btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.setAttribute('onclick', "showTab('" + def.id + "')");
+            btn.innerHTML = '<span class="material-icons">' + def.icon + '</span>' + def.label;
+            // Insert before district tab if it exists, otherwise append
+            var districtBtn = tabBar.querySelector('.tab-btn[onclick*="district"]');
+            if (districtBtn) tabBar.insertBefore(btn, districtBtn);
+            else tabBar.appendChild(btn);
+          }
+        });
+
+      } else if (dataFormat === 'sol_without_sol') {
+        // Hide MC-specific tabs (items, groups, heatmap), keep summary
+        ['items', 'groups', 'heatmap'].forEach(function(t) {
+          var btn = tabBar.querySelector('.tab-btn[onclick*="showTab(\'' + t + '\')"]');
+          if (btn) btn.style.display = 'none';
+        });
+
+        // Add SOL Without SOL tab buttons
+        var solTabDefs = [
+          { id: 'scaledScores', icon: 'score', label: 'Scaled Scores' },
+          { id: 'itemDifficulty', icon: 'signal_cellular_alt', label: 'Item Difficulty' }
+        ];
+        solTabDefs.forEach(function(def) {
+          if (!tabBar.querySelector('.tab-btn[onclick*="' + def.id + '"]')) {
+            var btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.setAttribute('onclick', "showTab('" + def.id + "')");
+            btn.innerHTML = '<span class="material-icons">' + def.icon + '</span>' + def.label;
+            var districtBtn = tabBar.querySelector('.tab-btn[onclick*="district"]');
+            if (districtBtn) tabBar.insertBefore(btn, districtBtn);
+            else tabBar.appendChild(btn);
+          }
+        });
+      }
+    }
+
+    // ─── SOL With SOL: SOL Analysis ───
+    function displaySOLAnalysis() {
+      var data = analysisResults.solAnalysis;
+      if (!data || data.length === 0) return;
+      var container = document.getElementById('solAnalysisContent');
+
+      var html = '<table class="data-table"><thead><tr>' +
+        '<th>SOL</th><th>Questions</th><th>Correct</th><th>Incorrect</th><th>Total</th><th>% Correct</th>' +
+        '</tr></thead><tbody>';
+
+      data.forEach(function(row) {
+        var color = row.pctCorrect >= 75 ? 'var(--color-strength)' :
+                    row.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr>' +
+          '<td><strong>' + row.sol + '</strong></td>' +
+          '<td>' + row.questionCount + '</td>' +
+          '<td style="color:var(--color-strength);">' + row.correct + '</td>' +
+          '<td style="color:var(--color-growth);">' + row.incorrect + '</td>' +
+          '<td>' + row.total + '</td>' +
+          '<td><span style="color:' + color + ';font-weight:600;">' + row.pctCorrect + '%</span></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // ─── SOL With SOL: Item Analysis by Description ───
+    function displaySOLItemAnalysis() {
+      var data = analysisResults.solItemAnalysis;
+      if (!data || data.length === 0) return;
+      var container = document.getElementById('solItemAnalysisContent');
+
+      var html = '<table class="data-table"><thead><tr>' +
+        '<th>#</th><th>SOL</th><th>Item Description</th><th>Difficulty</th>' +
+        '<th>Correct</th><th>Incorrect</th><th>% Correct</th>' +
+        '</tr></thead><tbody>';
+
+      data.forEach(function(item) {
+        var color = item.pctCorrect >= 75 ? 'var(--color-strength)' :
+                    item.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr>' +
+          '<td>' + item.question + '</td>' +
+          '<td><strong>' + item.sol + '</strong></td>' +
+          '<td style="max-width:350px;white-space:normal;">' + item.description + '</td>' +
+          '<td style="text-align:center;">' + item.difficulty + '</td>' +
+          '<td style="color:var(--color-strength);">' + item.correct + '</td>' +
+          '<td style="color:var(--color-growth);">' + item.incorrect + '</td>' +
+          '<td><span style="color:' + color + ';font-weight:600;">' + item.pctCorrect + '%</span></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // ─── SOL With SOL: Reporting Categories ───
+    function displayReportingCategories() {
+      var data = analysisResults.reportingCategories;
+      if (!data) return;
+      var container = document.getElementById('reportingCatContent');
+
+      var html = '<table class="data-table"><thead><tr>' +
+        '<th>Reporting Category</th><th>Questions</th><th>Correct</th><th>Incorrect</th><th>Total</th><th>% Correct</th>' +
+        '</tr></thead><tbody>';
+
+      (data.categories || []).forEach(function(cat) {
+        var color = cat.pctCorrect >= 75 ? 'var(--color-strength)' :
+                    cat.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr>' +
+          '<td><strong>' + cat.category + '</strong></td>' +
+          '<td>' + cat.questionCount + '</td>' +
+          '<td style="color:var(--color-strength);">' + cat.correct + '</td>' +
+          '<td style="color:var(--color-growth);">' + cat.incorrect + '</td>' +
+          '<td>' + cat.total + '</td>' +
+          '<td><span style="color:' + color + ';font-weight:600;">' + cat.pctCorrect + '%</span></td>' +
+          '</tr>';
+      });
+
+      // Grand total row
+      if (data.grandTotal) {
+        var gt = data.grandTotal;
+        var gtColor = gt.pctCorrect >= 75 ? 'var(--color-strength)' :
+                      gt.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr style="border-top:2px solid var(--border-color);font-weight:700;background:var(--bg-surface-light);">' +
+          '<td>Grand Total</td>' +
+          '<td>' + (data.categories || []).reduce(function(s,c){return s+c.questionCount;},0) + '</td>' +
+          '<td style="color:var(--color-strength);">' + gt.correct + '</td>' +
+          '<td style="color:var(--color-growth);">' + gt.incorrect + '</td>' +
+          '<td>' + gt.total + '</td>' +
+          '<td><span style="color:' + gtColor + ';font-weight:600;">' + gt.pctCorrect + '%</span></td>' +
+          '</tr>';
+      }
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // ─── SOL With SOL: Remediation Groupings ───
+    function displayRemediationGroups() {
+      var groups = analysisResults.remediationGroups;
+      if (!groups || groups.length === 0) return;
+      var container = document.getElementById('remediationContent');
+
+      var html = '<div class="groups-grid">';
+      groups.forEach(function(g) {
+        html += '<div class="group-card" data-teacher="' + g.teacher + '">' +
+          '<div class="group-header">' +
+            '<div class="group-title">' +
+              '<span class="material-icons">groups</span>' +
+              'Group ' + g.groupNumber +
+            '</div>' +
+            '<div class="group-meta">' + g.teacher + (g.period && g.period !== 'Unknown' ? ' &bull; ' + g.period : '') + '</div>' +
+          '</div>' +
+          '<div class="group-body">' +
+            '<div class="group-students">' +
+              '<div class="group-label">Students (' + g.studentCount + ')</div>' +
+              g.students.map(function(s) { return '<div class="group-student">' + s + '</div>'; }).join('') +
+            '</div>' +
+            '<div class="group-sols">' +
+              '<div class="group-label">Weak SOLs</div>' +
+              '<div class="sol-tags">' +
+                g.sharedWeakSOLs.map(function(s) { return '<span class="sol-tag">' + s + '</span>'; }).join('') +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    // ─── SOL Without SOL: Scaled Scores ───
+    function displayScaledScores() {
+      var data = analysisResults.scaledScores;
+      if (!data || data.length === 0) return;
+      var container = document.getElementById('scaledScoresContent');
+
+      var html = '<table class="data-table"><thead><tr>' +
+        '<th>Student</th><th>Teacher / Delivery Group</th><th>Scaled Score</th>' +
+        '<th>Correct</th><th>Total Items</th><th>% Correct</th>' +
+        '</tr></thead><tbody>';
+
+      data.forEach(function(row) {
+        var color = row.pctCorrect >= 75 ? 'var(--color-strength)' :
+                    row.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr>' +
+          '<td>' + row.student + '</td>' +
+          '<td>' + row.teacher + '</td>' +
+          '<td style="font-weight:600;">' + row.scaledScore + '</td>' +
+          '<td style="color:var(--color-strength);">' + row.correct + '</td>' +
+          '<td>' + row.total + '</td>' +
+          '<td><span style="color:' + color + ';font-weight:600;">' + row.pctCorrect + '%</span></td>' +
+          '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // ─── SOL Without SOL: Item Difficulty Analysis ───
+    function displayItemDifficulty() {
+      var data = analysisResults.itemDifficulty;
+      if (!data) return;
+      var container = document.getElementById('itemDifficultyContent');
+      var levels = data.difficultyLevels || [];
+
+      // Totals summary table
+      var html = '<h3 style="margin-bottom:12px;">Overall Performance by Difficulty Level</h3>' +
+        '<table class="data-table" style="margin-bottom:24px;"><thead><tr>' +
+        '<th>Difficulty</th><th>Questions</th><th>Correct</th><th>Total</th><th>% Correct</th>' +
+        '</tr></thead><tbody>';
+
+      levels.forEach(function(diff) {
+        var t = data.totals[diff];
+        var color = t.pctCorrect >= 75 ? 'var(--color-strength)' :
+                    t.pctCorrect >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+        html += '<tr>' +
+          '<td><strong>' + diff + '</strong></td>' +
+          '<td>' + t.questionCount + '</td>' +
+          '<td style="color:var(--color-strength);">' + t.correct + '</td>' +
+          '<td>' + t.total + '</td>' +
+          '<td><span style="color:' + color + ';font-weight:600;">' + t.pctCorrect + '%</span></td>' +
+          '</tr>';
+      });
+      html += '</tbody></table>';
+
+      // Per-student breakdown
+      html += '<h3 style="margin-bottom:12px;">Per-Student Breakdown</h3>' +
+        '<table class="data-table"><thead><tr>' +
+        '<th>Student</th><th>Teacher</th>';
+      levels.forEach(function(diff) {
+        html += '<th>' + diff + ' (% Correct)</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      (data.perStudent || []).forEach(function(row) {
+        html += '<tr>' +
+          '<td>' + row.student + '</td>' +
+          '<td>' + row.teacher + '</td>';
+        levels.forEach(function(diff) {
+          var d = row.byDifficulty[diff] || {};
+          var pct = d.pctCorrect !== undefined ? d.pctCorrect : '-';
+          var color = pct === '-' ? 'var(--text-muted)' :
+                      pct >= 75 ? 'var(--color-strength)' :
+                      pct >= 50 ? 'var(--color-monitor)' : 'var(--color-growth)';
+          html += '<td><span style="color:' + color + ';font-weight:600;">' +
+            (pct === '-' ? '-' : pct + '%') +
+            '</span> <span style="color:var(--text-muted);font-size:11px;">(' + (d.correct || 0) + '/' + (d.total || 0) + ')</span></td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
     
     function populateTeacherFilters() {

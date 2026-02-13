@@ -991,11 +991,55 @@ function transformSOLToMCFormat(rows, format) {
     throw new Error('No valid student data found in SOL file');
   }
 
-  var result = [solRow, headerRow];
+  var mcRows = [solRow, headerRow];
   for (var i = 0; i < studentRows.length; i++) {
-    result.push(studentRows[i]);
+    mcRows.push(studentRows[i]);
   }
-  return result;
+
+  // Build SOL-specific metadata for format-specific analysis
+  var itemDescriptions = [];
+  var reportingCategories = [];
+  var itemDifficulties = [];
+  for (var q = 0; q < totalQuestions; q++) {
+    var qDesc = questionOrder[q];
+    var qInfo = questionSet[qDesc];
+    itemDescriptions.push(qDesc);
+    itemDifficulties.push(qInfo.difficulty);
+    // For sol_with_sol, reporting category is separate from SOL code
+    // We need to re-extract it from the original data
+    reportingCategories.push('');
+  }
+
+  // Re-scan original data to fill reporting categories for each question
+  var catByDesc = {};
+  for (var r = 1; r < rows.length; r++) {
+    var row = rows[r];
+    if (!row || row.length < header.length) continue;
+    var desc = (row[descIdx] || '').toString().trim();
+    if (desc && !catByDesc[desc]) {
+      catByDesc[desc] = (row[catIdx] || '').toString().trim();
+    }
+  }
+  for (var q = 0; q < totalQuestions; q++) {
+    reportingCategories[q] = catByDesc[questionOrder[q]] || '';
+  }
+
+  // Build scaled scores map (student key -> scaled score)
+  var scaledScores = {};
+  for (var s = 0; s < studentKeys.length; s++) {
+    var key = studentKeys[s];
+    scaledScores['SOL_' + (s + 1)] = studentMap[key].scaledScore;
+  }
+
+  var solMetadata = {
+    format: format,
+    itemDescriptions: itemDescriptions,
+    reportingCategories: reportingCategories,
+    itemDifficulties: itemDifficulties,
+    scaledScores: scaledScores
+  };
+
+  return { rows: mcRows, solMetadata: solMetadata };
 }
 
 /**
@@ -1034,7 +1078,9 @@ function processCSVUpload(uploadData) {
   } else {
     // SOL format: parse with flexible delimiter, then transform to MC format
     const solRows = parseFlexibleDelimiter(csvContent);
-    rows = transformSOLToMCFormat(solRows, dataFormat);
+    const transformed = transformSOLToMCFormat(solRows, dataFormat);
+    rows = transformed.rows;
+    var solMetadata = transformed.solMetadata;
   }
 
   // Validate required columns (header is always row[1] after transformation)
@@ -1150,6 +1196,11 @@ function processCSVUpload(uploadData) {
 
   if (chunk.length > 0) {
     rawRows.push([assessmentId, rowIdx++, 'students', JSON.stringify(chunk)]);
+  }
+
+  // Store SOL-specific metadata if present
+  if (typeof solMetadata !== 'undefined' && solMetadata) {
+    rawRows.push([assessmentId, rowIdx++, 'sol_metadata', JSON.stringify(solMetadata)]);
   }
 
   // Single batch write instead of N appendRow calls
@@ -1345,6 +1396,7 @@ function getAssessmentData(assessmentId) {
     let solRow = [];
     let header = [];
     let students = [];
+    let solMetadata = null;
 
     for (let i = 1; i < rawData.length; i++) {
       if (rawData[i][0] != null && String(rawData[i][0]).trim() === normalId) {
@@ -1354,8 +1406,9 @@ function getAssessmentData(assessmentId) {
 
           if (rowType === 'sol') solRow = data;
           else if (rowType === 'header') header = data;
-          else if (rowType === 'students') students = students.concat(data); // Chunked or single array of students
-          else if (rowType === 'student') students.push(data); // Legacy format: one row per student
+          else if (rowType === 'students') students = students.concat(data);
+          else if (rowType === 'student') students.push(data);
+          else if (rowType === 'sol_metadata') solMetadata = data;
         } catch (parseError) {
           Logger.log('Error parsing row ' + i + ': ' + parseError.message);
         }
@@ -1381,7 +1434,8 @@ function getAssessmentData(assessmentId) {
       solRow: solRow,
       header: header,
       students: students,
-      periodMap: periodMap
+      periodMap: periodMap,
+      solMetadata: solMetadata
     };
   } catch (error) {
     Logger.log('getAssessmentData error: ' + error.message);

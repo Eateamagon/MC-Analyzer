@@ -317,7 +317,7 @@
     <header class="top-header">
       <div class="header-left">
         <h1>Upload Assessment Data</h1>
-        <span class="header-subtitle">Import your Mastery Connect benchmark CSV export</span>
+        <span class="header-subtitle">Import your assessment data (Mastery Connect or SOL format)</span>
       </div>
       <div class="header-right" style="display:flex;align-items:center;gap:16px;">
         <div class="theme-toggles">
@@ -365,7 +365,7 @@
             <span class="material-icons">cloud_upload</span>
             <h3>Drop your CSV file here</h3>
             <p>or click to browse files</p>
-            <input type="file" id="fileInput" accept=".csv" style="display: none;">
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt" style="display: none;">
             <button class="btn btn-secondary">Browse Files</button>
           </div>
           
@@ -382,6 +382,17 @@
             </button>
           </div>
           
+          <!-- Data Format Selector -->
+          <div class="form-group" id="formatSelector" style="margin-top: 20px; display: none;">
+            <label style="font-weight: 500; margin-bottom: 8px; display: block;">Data Format</label>
+            <select id="dataFormat" class="form-input" onchange="onFormatChange()">
+              <option value="mastery_connect">Mastery Connect CSV</option>
+              <option value="sol_with_sol">SOL Data (With SOL Column)</option>
+              <option value="sol_without_sol">SOL Data (Without SOL Column)</option>
+            </select>
+            <div id="formatHint" style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Standard Mastery Connect benchmark export</div>
+          </div>
+
           <!-- Existing Assessments Section -->
           <div id="existingAssessmentsSection" style="margin-top: 24px; display: none;">
             <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
@@ -653,10 +664,10 @@
         zone.classList.remove('dragover');
         
         const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith('.csv')) {
+        if (file && (file.name.endsWith('.csv') || file.name.endsWith('.tsv') || file.name.endsWith('.txt'))) {
           handleFile(file);
         } else {
-          showToast('Please upload a CSV file', 'error');
+          showToast('Please upload a CSV, TSV, or TXT file', 'error');
         }
       });
       
@@ -682,8 +693,12 @@
         document.getElementById('step1Next').disabled = false;
 
         // Try to detect assessment name from file
-        const baseName = file.name.replace('.csv', '').replace(/_/g, ' ');
+        const baseName = file.name.replace(/\.(csv|tsv|txt)$/i, '').replace(/_/g, ' ');
         document.getElementById('assessmentName').value = baseName;
+
+        // Show format selector and auto-detect format
+        document.getElementById('formatSelector').style.display = 'block';
+        autoDetectFormat(csvContent);
 
         // Auto-detect metadata from filename and CSV
         autoDetectMetadata(baseName, csvContent);
@@ -782,12 +797,87 @@
       }
     }
     
+    function autoDetectFormat(content) {
+      var formatEl = document.getElementById('dataFormat');
+      var hintEl = document.getElementById('formatHint');
+      if (!content) return;
+
+      // Get first line and normalize to lowercase for matching
+      var firstLine = content.split('\n')[0].toLowerCase();
+
+      if (firstLine.indexOf('student name') !== -1 && firstLine.indexOf('delivery group') !== -1 && firstLine.indexOf('correct/incorrect') !== -1) {
+        // SOL format detected
+        if (firstLine.indexOf('\tsol\t') !== -1 || firstLine.match(/\bsol\b/) && firstLine.indexOf('performance level') !== -1) {
+          formatEl.value = 'sol_with_sol';
+          hintEl.textContent = 'Auto-detected: SOL format with SOL column';
+        } else {
+          formatEl.value = 'sol_without_sol';
+          hintEl.textContent = 'Auto-detected: SOL format without SOL column';
+        }
+
+        // Also try to auto-detect subject and grade from CSV data for SOL formats
+        autoDetectSOLMetadata(content);
+      } else {
+        formatEl.value = 'mastery_connect';
+        hintEl.textContent = 'Auto-detected: Standard Mastery Connect benchmark export';
+      }
+    }
+
+    function autoDetectSOLMetadata(content) {
+      // For SOL formats, try to extract subject and grade from the data rows
+      var lines = content.split('\n');
+      if (lines.length < 2) return;
+
+      // Parse the header to find Subject and Grade columns
+      var delimiter = (lines[0].split('\t').length > lines[0].split(',').length) ? '\t' : ',';
+      var headers = lines[0].split(delimiter).map(function(h) { return h.trim().toLowerCase(); });
+      var subjectIdx = headers.indexOf('subject');
+      var gradeIdx = headers.indexOf('grade');
+
+      if (lines.length > 1) {
+        var dataFields = lines[1].split(delimiter).map(function(f) { return f.trim(); });
+
+        // Detect subject from data
+        if (subjectIdx !== -1 && dataFields[subjectIdx]) {
+          var subjectText = dataFields[subjectIdx].toLowerCase();
+          var subjectEl = document.getElementById('assessmentSubject');
+          if (!subjectEl.value) {
+            if (subjectText.indexOf('math') !== -1 || subjectText.indexOf('algebra') !== -1) subjectEl.value = 'Math';
+            else if (subjectText.indexOf('science') !== -1) subjectEl.value = 'Science';
+            else if (subjectText.indexOf('english') !== -1 || subjectText.indexOf('ela') !== -1 || subjectText.indexOf('reading') !== -1) subjectEl.value = 'English';
+            else if (subjectText.indexOf('civics') !== -1 || subjectText.indexOf('history') !== -1 || subjectText.indexOf('government') !== -1) subjectEl.value = 'Civics';
+          }
+        }
+
+        // Detect grade from data
+        if (gradeIdx !== -1 && dataFields[gradeIdx]) {
+          var gradeEl = document.getElementById('gradeLevel');
+          if (!gradeEl.value) {
+            var g = parseInt(dataFields[gradeIdx], 10);
+            if (g >= 1 && g <= 12) gradeEl.value = String(g);
+          }
+        }
+      }
+    }
+
+    function onFormatChange() {
+      var format = document.getElementById('dataFormat').value;
+      var hintEl = document.getElementById('formatHint');
+      var hints = {
+        'mastery_connect': 'Standard Mastery Connect benchmark export with answer choices',
+        'sol_with_sol': 'SOL test data with individual SOL codes per item',
+        'sol_without_sol': 'SOL test data grouped by Reporting Category (no individual SOL codes)'
+      };
+      hintEl.textContent = hints[format] || '';
+    }
+
     function removeFile() {
       uploadedFile = null;
       csvContent = null;
       document.getElementById('fileInfo').classList.remove('active');
       document.getElementById('step1Next').disabled = true;
       document.getElementById('fileInput').value = '';
+      document.getElementById('formatSelector').style.display = 'none';
     }
     
     function goToStep(step) {
@@ -832,7 +922,8 @@
         gradeLevel: document.getElementById('gradeLevel').value,
         assessmentType: document.getElementById('assessmentType').value,
         dateAdministered: document.getElementById('dateAdministered').value,
-        school: document.getElementById('assessmentSchool').value
+        school: document.getElementById('assessmentSchool').value,
+        dataFormat: document.getElementById('dataFormat').value
       };
 
       google.script.run

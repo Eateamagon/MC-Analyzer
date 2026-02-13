@@ -172,7 +172,7 @@ function createAnalysisSheets(ss, results, teacherFilter) {
         .setBackground('#e8f0fe');
       
       analysis.forEach((item, idx) => {
-        const distractorStr = item.allDistractors.map(d => `${d.answer}:${d.count}`).join(' | ');
+        const distractorStr = item.allDistractors.filter(d => d.answer !== '-' && d.answer !== '').map(d => `${d.answer}:${d.count}`).join(' | ');
         sh.getRange(4 + idx, 1, 1, 8).setValues([[
           item.question,
           item.sol,

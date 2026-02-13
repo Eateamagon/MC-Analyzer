@@ -226,17 +226,29 @@ function generateItemAnalysis(students, questions, pctCol) {
       topCount = sortedWrong[0][1];
     }
     
-    // All distractors
-    const allDistractors = sortedWrong.map(([ans, count]) => ({ answer: ans, count: count }));
-    
+    // All distractors - filter out placeholder dashes (SOL format has no answer choices)
+    const allDistractors = sortedWrong
+      .map(([ans, count]) => ({ answer: ans, count: count }))
+      .filter(d => d.answer !== '-' && d.answer !== '');
+
+    // Update top wrong from filtered distractors
+    if (allDistractors.length > 0) {
+      topWrong = allDistractors[0].answer;
+      topCount = allDistractors[0].count;
+    } else if (sortedWrong.length > 0 && sortedWrong[0][0] === '-') {
+      // SOL format: no meaningful distractor data
+      topWrong = '-';
+      topCount = 0;
+    }
+
     // Check if high performers struggled
     let hpWrong = 0;
     highPerformers.forEach(hp => {
       if (hp[q.scoreColIndex] != 1) hpWrong++;
     });
-    
+
     const reviewFlag = highPerformers.length > 0 && (hpWrong / highPerformers.length) > 0.5;
-    
+
     analysis.push({
       question: `Q${q.number}`,
       sol: q.sol,
